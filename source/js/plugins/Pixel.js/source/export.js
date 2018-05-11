@@ -1,5 +1,8 @@
 import {Colour} from './colour';
 import {Point} from './point';
+import {Layer} from './layer';
+import {Rectangle} from './rectangle';
+import {Selection} from './selection';
 
 export class Export
 {
@@ -16,6 +19,32 @@ export class Export
         this.uiManager = uiManager;
     }
 
+    createBackgroundLayer() {
+        //Create new background layer which is the actual background
+        let backgroundLayer = new Layer(4, new Colour(242, 0, 242, 1), "Background Layer", this.pixelInstance, 0.5, this.pixelInstance.actions);
+        //Select everything on backgroundLayer using a large rectangle
+        let rect = new Rectangle(new Point(0, 0, this.pageIndex), 10000, 10000, "add");
+        backgroundLayer.addShapeToLayer(rect);
+        backgroundLayer.drawLayer(this.pixelInstance.core.getSettings().maxZoomLevel, backgroundLayer.getCanvas());
+        for (var i = 0; i < this.layers.length; i++) { 
+            this.layers[i].shapes.forEach(function(shape) { //shapes first
+                shape.blendMode = "subtract";
+                backgroundLayer.addShapeToLayer(shape);
+            });
+            this.layers[i].paths.forEach(function(path) {
+                if (path.blendMode === "add") { //ignore eraser paths
+                    path.blendMode = "subtract";
+                    backgroundLayer.addPathToLayer(path);
+                } else {
+                    path.blendMode = "add";
+                    backgroundLayer.addPathToLayer(path);
+                }
+            });
+            backgroundLayer.drawLayer(this.pixelInstance.core.getSettings().maxZoomLevel, backgroundLayer.getCanvas());
+        }
+        this.layers.push(backgroundLayer);
+    }
+
     /**
      * Creates a PNG for each layer where the pixels spanned by the layers are replaced by the actual image data
      * of the Diva page
@@ -23,6 +52,8 @@ export class Export
     exportLayersAsImageData ()
     {
         this.dataCanvases = [];
+
+        this.createBackgroundLayer();
 
         let height = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(this.pageIndex, this.zoomLevel).height,
             width = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(this.pageIndex, this.zoomLevel).width;
@@ -84,6 +115,8 @@ export class Export
     {
         console.log("Exporting");
 
+        this.createBackgroundLayer();
+
         let count = this.layers.length;
         let urlList = [];
 
@@ -98,7 +131,7 @@ export class Export
                     console.log(urlList);
                     console.log("done");
 
-                    $.ajax({url: '', type: 'POST', data: JSON.stringify({'user_input': urlList}), contentType: 'application/json'});
+                    $.ajax({url: '', type: 'POST', data: JSON.stringify({   'user_input': urlList}), contentType: 'application/json'});
                 }
         });
     }
@@ -109,7 +142,9 @@ export class Export
 
     exportLayersAsHighlights ()
     {
-        console.log("Exporting");
+        console.log("Exporting 123");
+
+        this.createBackgroundLayer();
 
         // The idea here is to draw each layer on a canvas and scan the pixels of that canvas to fill the matrix
         this.layers.forEach((layer) => {
