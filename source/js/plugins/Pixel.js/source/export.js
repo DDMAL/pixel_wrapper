@@ -21,7 +21,7 @@ export class Export
 
     createBackgroundLayer() {
         //Create new background layer which is the actual background
-        let backgroundLayer = new Layer(4, new Colour(242, 0, 242, 1), "RealBackground", this.pixelInstance, 0.5, this.pixelInstance.actions);
+        let backgroundLayer = new Layer(4, new Colour(242, 0, 242, 1), "Background Layer", this.pixelInstance, 0.5, this.pixelInstance.actions);
         //Select everything on backgroundLayer using a large rectangle
         let rect = new Rectangle(new Point(0, 0, this.pageIndex), 10000, 10000, "add");
         backgroundLayer.addShapeToLayer(rect);
