@@ -31,18 +31,15 @@ export class Export
                 if (path.blendMode === "add") { //ignore eraser paths
                     path.blendMode = "subtract";
                     backgroundLayer.addPathToLayer(path);
-                    backgroundLayer.drawLayer(this.pixelInstance.core.getSettings().maxZoomLevel, backgroundLayer.getCanvas());
-                    path.blendMode = "add";
                 }
             });
             this.layers[i].shapes.forEach(function(shape) {
                 if (shape.blendMode === "add") { //ignore eraser paths
                     shape.blendMode = "subtract";
                     backgroundLayer.addShapeToLayer(shape);
-                    backgroundLayer.drawLayer(this.pixelInstance.core.getSettings().maxZoomLevel, backgroundLayer.getCanvas());
-                    shape.blendMode = "add";
                 }
             });
+            backgroundLayer.drawLayer(this.pixelInstance.core.getSettings().maxZoomLevel, backgroundLayer.getCanvas());
         }
         this.layers.push(backgroundLayer);
     }
