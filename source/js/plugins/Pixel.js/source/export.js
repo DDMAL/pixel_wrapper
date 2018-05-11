@@ -26,17 +26,18 @@ export class Export
         let rect = new Rectangle(new Point(0, 0, this.pageIndex), 10000, 10000, "add");
         backgroundLayer.addShapeToLayer(rect);
         backgroundLayer.drawLayer(this.pixelInstance.core.getSettings().maxZoomLevel, backgroundLayer.getCanvas());
-        for (var i = 0; i < this.layers.length; i++) {
+        for (var i = 0; i < this.layers.length; i++) { 
+            this.layers[i].shapes.forEach(function(shape) { //shapes first
+                shape.blendMode = "subtract";
+                backgroundLayer.addShapeToLayer(shape);
+            });
             this.layers[i].paths.forEach(function(path) {
                 if (path.blendMode === "add") { //ignore eraser paths
                     path.blendMode = "subtract";
                     backgroundLayer.addPathToLayer(path);
-                }
-            });
-            this.layers[i].shapes.forEach(function(shape) {
-                if (shape.blendMode === "add") { //ignore eraser paths
-                    shape.blendMode = "subtract";
-                    backgroundLayer.addShapeToLayer(shape);
+                } else {
+                    path.blendMode = "add";
+                    backgroundLayer.addPathToLayer(path);
                 }
             });
             backgroundLayer.drawLayer(this.pixelInstance.core.getSettings().maxZoomLevel, backgroundLayer.getCanvas());
