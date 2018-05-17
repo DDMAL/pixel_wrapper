@@ -2292,7 +2292,8 @@
 
 	    /**
 	     *  Generates a background layer by iterating over all the pixel data for each layer and 
-	     *  subtracting it from the background layer if the data is non-transparent (alpha != 0)
+	     *  subtracting it from the background layer if the data is non-transparent (alpha != 0). Somewhat
+	     *  replicates what the exportLayersAsImageData function does but for the background.
 	     */
 
 
@@ -2301,8 +2302,7 @@
 	        value: function createBackgroundLayer() {
 	            var _this = this;
 
-	            console.log("Generating...");
-	            //If generate background button has already been clicked, remove that background layer from layers
+	            // If generate background button has already been clicked, remove that background layer from layers
 	            if (this.layers.length === 4) {
 	                this.layers.pop();
 	            }
@@ -2313,15 +2313,16 @@
 	                width = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(pageIndex, maxZoom).width,
 	                height = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(pageIndex, maxZoom).height;
 
-	            //highlight whole image for background layer
+	            // highlight whole image for background layer
 	            var rect = new _rectangle.Rectangle(new _point.Point(0, 0, pageIndex), width, height, "add");
 	            backgroundLayer.addShapeToLayer(rect);
 	            backgroundLayer.drawLayer(maxZoom, backgroundLayer.getCanvas());
 
-	            var progressCanvas = this.uiManager.createExportElements(this).progressCanvas;
+	            // instantiate 
+	            this.uiManager.createExportElements(this);
 
 	            this.layers.forEach(function (layer) {
-	                //create canvas to retrieve pixel data through context
+	                // create layer canvas and draw (so pixel data can be accessed)
 	                var layerCanvas = document.createElement('canvas');
 	                layerCanvas.setAttribute("class", "export-page-canvas");
 	                layerCanvas.setAttribute("id", "layer-" + layer.layerId + "-export-canvas");
@@ -2343,7 +2344,6 @@
 	                row = 0,
 	                col = 0,
 	                pixelCtx = layerCanvas.getContext('2d');
-
 	            var doChunk = function doChunk() {
 	                var cnt = chunkSize;
 	                chunkNum++;
@@ -2358,25 +2358,25 @@
 	                        }
 	                        col++;
 	                    } else {
+	                        // reached end of row, jump to next
 	                        row++;
 	                        col = 0;
 	                    }
 	                }
-	                if (_this2.progress(row, chunkNum, chunkSize, height, backgroundLayer).needsRecall) {
+	                if (_this2.progress(row, chunkSize, chunkNum, height, backgroundLayer).needsRecall) {
+	                    // recall function
 	                    setTimeout(doChunk, 1);
 	                }
 	            };
-
 	            doChunk();
 	        }
 	    }, {
 	        key: 'progress',
-	        value: function progress(row, chunkNum, chunkSize, height, backgroundLayer) {
-	            if (row === height) {
+	        value: function progress(row, chunkSize, chunkNum, height, backgroundLayer) {
+	            if (row === height || this.exportInterrupted) {
 	                this.layersCount -= 1;
 	            }
-
-	            if (row < height) {
+	            if (row < height && !this.exportInterrupted) {
 	                var percentage = chunkNum * chunkSize * 100 / (height * chunkSize),
 	                    roundedPercentage = percentage > 100 ? 100 : Math.round(percentage * 10) / 10;
 	                this.pixelInstance.uiManager.updateProgress(roundedPercentage);
@@ -2384,11 +2384,16 @@
 	                    needsRecall: true
 	                };
 	            } else {
-	                if (this.layersCount === 0) {
+	                if (this.exportInterrupted && this.layersCount === 0) {
+	                    this.exportInterrupted = false;
+	                    this.uiManager.destroyExportElements();
+	                } else if (this.exportInterrupted) {
+	                    // Do nothing and wait until last layer has finished processing to cancel
+	                } else if (this.layersCount === 0) {
+	                    // done generating background layer
 	                    backgroundLayer.drawLayer(0, backgroundLayer.getCanvas());
 	                    this.layers.push(backgroundLayer);
-	                    document.getElementById("create-background-button").innerText = "Generated!";
-	                    console.log("Generated");
+	                    document.getElementById("create-background-button").innerText = "Background Generated!";
 	                    this.uiManager.destroyExportElements();
 	                }
 	            }
@@ -3385,7 +3390,7 @@
 	        key: 'createExportElements',
 	        value: function createExportElements(exportInstance) {
 	            var exportDiv = document.createElement('div'),
-	                text = document.createTextNode("Exporting"),
+	                text = document.createTextNode("Generating"),
 	                progressText = document.createTextNode("0%"),
 	                progressBarOuterDiv = document.createElement('div'),
 	                progressBarInnerDiv = document.createElement('div'),
