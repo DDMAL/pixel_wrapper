@@ -16,23 +16,25 @@ export class Export
         this.zoomLevel = zoomLevel;
         this.matrix = null;
         this.uiManager = uiManager;
-        this.layersCount = 3;
+        this.layersCount = layers.length; // For generating the background layer, excludes background
     }
 
     /**
      *  Generates a background layer by iterating over all the pixel data for each layer and 
      *  subtracting it from the background layer if the data is non-transparent (alpha != 0). Somewhat
-     *  replicates what the exportLayersAsImageData function does but for the background.
+     *  replicates what the exportLayersAsImageData function does but for generating the background
+     *  layer, and there are numerous (albeit small) differences that requires a new function
      */
     createBackgroundLayer () 
     {
         // If generate background button has already been clicked, remove that background layer from layers
-        if (this.layers.length === 4) { 
+        if (document.getElementById("create-background-button").innerText === "Background Generated!") { 
             this.layers.pop();
+            this.layersCount = this.layers.length;
         }
 
-        let backgroundLayer = new Layer(4, new Colour(242, 0, 242, 1), "Background Layer", this.pixelInstance, 0.5, 
-            this.pixelInstance.actions),
+        let backgroundLayer = new Layer(this.layersCount+1, new Colour(242, 0, 242, 1), "Background Layer", 
+            this.pixelInstance, 0.5, this.pixelInstance.actions),
             maxZoom = this.pixelInstance.core.getSettings().maxZoomLevel,
             pageIndex = this.pageIndex,
             width = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(pageIndex, maxZoom).width,
@@ -43,7 +45,7 @@ export class Export
         backgroundLayer.addShapeToLayer(rect);
         backgroundLayer.drawLayer(maxZoom, backgroundLayer.getCanvas());
 
-        // Instantiate 
+        // Instantiate progress bar
         this.uiManager.createExportElements(this);
 
         this.layers.forEach((layer) => {

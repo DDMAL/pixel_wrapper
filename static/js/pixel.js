@@ -1072,9 +1072,6 @@
 	         * ===============================================
 	         **/
 
-	        // Will fill a canvas with the highlighted data and scan every pixel of that and fill another canvas with diva data
-	        // on the highlighted regions
-
 	    }, {
 	        key: 'createBackgroundLayer',
 	        value: function createBackgroundLayer() {
@@ -1083,6 +1080,10 @@
 
 	            new _export.Export(this, this.layers, pageIndex, zoomLevel, this.uiManager).createBackgroundLayer();
 	        }
+
+	        // Will fill a canvas with the highlighted data and scan every pixel of that and fill another canvas with diva data
+	        // on the highlighted regions
+
 	    }, {
 	        key: 'exportAsImageData',
 	        value: function exportAsImageData() {
@@ -2287,13 +2288,14 @@
 	        this.zoomLevel = zoomLevel;
 	        this.matrix = null;
 	        this.uiManager = uiManager;
-	        this.layersCount = 3;
+	        this.layersCount = layers.length; // For generating the background layer, excludes background
 	    }
 
 	    /**
 	     *  Generates a background layer by iterating over all the pixel data for each layer and 
 	     *  subtracting it from the background layer if the data is non-transparent (alpha != 0). Somewhat
-	     *  replicates what the exportLayersAsImageData function does but for the background.
+	     *  replicates what the exportLayersAsImageData function does but for generating the background
+	     *  layer, and there are numerous (albeit small) differences that requires a new function
 	     */
 
 
@@ -2303,26 +2305,27 @@
 	            var _this = this;
 
 	            // If generate background button has already been clicked, remove that background layer from layers
-	            if (this.layers.length === 4) {
+	            if (document.getElementById("create-background-button").innerText === "Background Generated!") {
 	                this.layers.pop();
+	                this.layersCount = this.layers.length;
 	            }
 
-	            var backgroundLayer = new _layer.Layer(4, new _colour.Colour(242, 0, 242, 1), "Background Layer", this.pixelInstance, 0.5, this.pixelInstance.actions),
+	            var backgroundLayer = new _layer.Layer(this.layersCount + 1, new _colour.Colour(242, 0, 242, 1), "Background Layer", this.pixelInstance, 0.5, this.pixelInstance.actions),
 	                maxZoom = this.pixelInstance.core.getSettings().maxZoomLevel,
 	                pageIndex = this.pageIndex,
 	                width = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(pageIndex, maxZoom).width,
 	                height = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(pageIndex, maxZoom).height;
 
-	            // highlight whole image for background layer
+	            // Highlight whole image for background layer
 	            var rect = new _rectangle.Rectangle(new _point.Point(0, 0, pageIndex), width, height, "add");
 	            backgroundLayer.addShapeToLayer(rect);
 	            backgroundLayer.drawLayer(maxZoom, backgroundLayer.getCanvas());
 
-	            // instantiate 
+	            // Instantiate progress bar
 	            this.uiManager.createExportElements(this);
 
 	            this.layers.forEach(function (layer) {
-	                // create layer canvas and draw (so pixel data can be accessed)
+	                // Create layer canvas and draw (so pixel data can be accessed)
 	                var layerCanvas = document.createElement('canvas');
 	                layerCanvas.setAttribute("class", "export-page-canvas");
 	                layerCanvas.setAttribute("id", "layer-" + layer.layerId + "-export-canvas");
@@ -2345,6 +2348,7 @@
 	                col = 0,
 	                pixelCtx = layerCanvas.getContext('2d');
 	            var doChunk = function doChunk() {
+	                // Use this method instead of nested for so UI isn't blocked
 	                var cnt = chunkSize;
 	                chunkNum++;
 	                while (cnt--) {
@@ -2358,7 +2362,7 @@
 	                        }
 	                        col++;
 	                    } else {
-	                        // reached end of row, jump to next
+	                        // Reached end of row, jump to next
 	                        row++;
 	                        col = 0;
 	                    }
@@ -2390,7 +2394,7 @@
 	                } else if (this.exportInterrupted) {
 	                    // Do nothing and wait until last layer has finished processing to cancel
 	                } else if (this.layersCount === 0) {
-	                    // done generating background layer
+	                    // Done generating background layer
 	                    backgroundLayer.drawLayer(0, backgroundLayer.getCanvas());
 	                    this.layers.push(backgroundLayer);
 	                    document.getElementById("create-background-button").innerText = "Background Generated!";
