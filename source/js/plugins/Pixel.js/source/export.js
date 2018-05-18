@@ -16,33 +16,40 @@ export class Export
         this.zoomLevel = zoomLevel;
         this.matrix = null;
         this.uiManager = uiManager;
+        this.layersCount = layers.length; // For generating the background layer, excludes background
     }
 
     /**
      *  Generates a background layer by iterating over all the pixel data for each layer and 
-     *  subtracting it from the background layer if the data is non-transparent (alpha != 0)
+     *  subtracting it from the background layer if the data is non-transparent (alpha != 0). Somewhat
+     *  replicates what the exportLayersAsImageData function does but for generating the background
+     *  layer, and there are numerous (albeit small) differences that requires a new function
      */
-    createBackgroundLayer() 
+    createBackgroundLayer () 
     {
-        //If export button has already been clicked, remove that background layer from layers
-        if (this.layers.length === 4) { 
+        // If generate background button has already been clicked, remove that background layer from layers
+        if (document.getElementById("create-background-button").innerText === "Background Generated!") { 
             this.layers.pop();
+            this.layersCount = this.layers.length;
         }
-        let backgroundLayer = new Layer(4, new Colour(242, 0, 242, 1), "Background Layer", this.pixelInstance, 0.5, 
-            this.pixelInstance.actions),
+
+        let backgroundLayer = new Layer(this.layersCount+1, new Colour(242, 0, 242, 1), "Background Layer", 
+            this.pixelInstance, 0.5, this.pixelInstance.actions),
             maxZoom = this.pixelInstance.core.getSettings().maxZoomLevel,
             pageIndex = this.pageIndex,
             width = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(pageIndex, maxZoom).width,
             height = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(pageIndex, maxZoom).height;
 
-        //highlight whole image for background layer
+        // Highlight whole image for background layer
         let rect = new Rectangle(new Point(0, 0, pageIndex), width, height, "add");
         backgroundLayer.addShapeToLayer(rect);
         backgroundLayer.drawLayer(maxZoom, backgroundLayer.getCanvas());
 
-        this.layers.forEach(function(layer) {
+        // Instantiate progress bar
+        this.uiManager.createExportElements(this);
 
-            //create canvas to retrieve pixel data through context
+        this.layers.forEach((layer) => {
+            // Create layer canvas and draw (so pixel data can be accessed)
             let layerCanvas = document.createElement('canvas');
             layerCanvas.setAttribute("class", "export-page-canvas");
             layerCanvas.setAttribute("id", "layer-" + layer.layerId + "-export-canvas");
@@ -50,26 +57,73 @@ export class Export
             layerCanvas.width = width;
             layerCanvas.height = height;
             layer.drawLayerInPageCoords(maxZoom, layerCanvas, pageIndex); 
-            let pixelCtx = layerCanvas.getContext('2d');
 
-            //loop through every pixel and subtract from background if it's opaque
-            for (var row = 0; row < height; row++) {
-                for (var col = 0; col < width; col++) {
+            this.subtractLayerFromBackground(backgroundLayer, layerCanvas, pageIndex, width, height);
+        });
+    }
+
+    subtractLayerFromBackground (backgroundLayer, layerCanvas, pageIndex, width, height) 
+    {
+        var chunkSize = width,
+            chunkNum = 0,
+            row = 0,
+            col = 0,
+            pixelCtx = layerCanvas.getContext('2d');
+        let doChunk = () => { // Use this method instead of nested for so UI isn't blocked
+            var cnt = chunkSize;
+            chunkNum++;
+            while (cnt--) { 
+                if (row >= height)
+                    break;
+                if (col < width) {
                     let data = pixelCtx.getImageData(col, row, 1, 1).data,
                         colour = new Colour(data[0], data[1], data[2], data[3]);
                     if (colour.alpha !== 0) { 
                         let currentPixel = new Rectangle(new Point(col, row, pageIndex), 1, 1, "subtract");
                         backgroundLayer.addShapeToLayer(currentPixel);
                     }
+                    col++;
                 }
-                if (row === height-1) {
-                    console.log("Done layer " + layer.layerId);
+                else { // Reached end of row, jump to next
+                    row++;
+                    col = 0;
                 }
             }
-            backgroundLayer.drawLayer(0, backgroundLayer.getCanvas());
-        });
-        this.layers.push(backgroundLayer);  
-        console.log("Done exporting");
+            if (this.progress(row, chunkSize, chunkNum, height, backgroundLayer).needsRecall) { // recall function
+                setTimeout(doChunk, 1); 
+            }
+        };  
+        doChunk();
+    }
+
+    progress (row, chunkSize, chunkNum, height, backgroundLayer) 
+    {
+        if (row === height || this.exportInterrupted) {
+            this.layersCount -= 1;
+        }
+        if (row < height && !this.exportInterrupted) {
+            let percentage = (chunkNum * chunkSize) * 100 / (height * chunkSize),
+                roundedPercentage = (percentage > 100) ? 100 : Math.round(percentage * 10) / 10;
+            this.pixelInstance.uiManager.updateProgress(roundedPercentage);
+            return {
+                needsRecall: true
+            };
+        } else {
+            if (this.exportInterrupted && (this.layersCount === 0)) {
+                this.exportInterrupted = false;
+                this.uiManager.destroyExportElements();
+            } else if (this.exportInterrupted) {
+                // Do nothing and wait until last layer has finished processing to cancel
+            } else if (this.layersCount === 0) { // Done generating background layer
+                backgroundLayer.drawLayer(0, backgroundLayer.getCanvas());
+                this.layers.push(backgroundLayer);  
+                document.getElementById("create-background-button").innerText = "Background Generated!";
+                this.uiManager.destroyExportElements();
+            }
+        }
+        return {
+            needsRecall: false
+        };
     }
 
     /**
@@ -79,8 +133,6 @@ export class Export
     exportLayersAsImageData ()
     {
         this.dataCanvases = [];
-
-        this.createBackgroundLayer();
 
         let height = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(this.pageIndex, this.zoomLevel).height,
             width = this.pixelInstance.core.publicInstance.getPageDimensionsAtZoomLevel(this.pageIndex, this.zoomLevel).width;
@@ -142,8 +194,6 @@ export class Export
     {
         console.log("Exporting");
 
-        this.createBackgroundLayer();
-
         let count = this.layers.length;
         let urlList = [];
 
@@ -170,8 +220,6 @@ export class Export
     exportLayersAsHighlights ()
     {
         console.log("Exporting");
-
-        this.createBackgroundLayer();
 
         // The idea here is to draw each layer on a canvas and scan the pixels of that canvas to fill the matrix
         this.layers.forEach((layer) => {

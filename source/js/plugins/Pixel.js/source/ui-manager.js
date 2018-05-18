@@ -445,7 +445,9 @@ export class UIManager
 
     createExportButtons ()
     {
-        let csvExportButton = document.createElement("button"),
+        let createBackgroundButton = document.createElement("button"),
+            createBackgroundText = document.createTextNode("Generate Background Layer"),
+            csvExportButton = document.createElement("button"),
             csvExportText = document.createTextNode("Export as CSV"),
             pngExportButton = document.createElement("button"),
             pngExportText = document.createTextNode("Export as highlights PNG"),
@@ -454,10 +456,15 @@ export class UIManager
             pngDataExportButton = document.createElement("button"),
             pngDataExportText = document.createTextNode("Export as image Data PNG");
 
+        this.createBackgroundLayer = () => { this.pixelInstance.createBackgroundLayer(); };
         this.exportCSV = () => { this.pixelInstance.exportAsCSV(); };
         this.exportPNG = () => { this.pixelInstance.exportAsHighlights(); };
         this.exportToRodan = () => { this.pixelInstance.exportToRodan(); };
         this.exportPNGData = () => { this.pixelInstance.exportAsImageData(); };
+
+        createBackgroundButton.setAttribute("id", "create-background-button");
+        createBackgroundButton.appendChild(createBackgroundText);
+        createBackgroundButton.addEventListener("click", this.createBackgroundLayer);
 
         csvExportButton.setAttribute("id", "csv-export-button");
         csvExportButton.appendChild(csvExportText);
@@ -475,6 +482,7 @@ export class UIManager
         pngDataExportButton.appendChild(pngDataExportText);
         pngDataExportButton.addEventListener("click", this.exportPNGData);
 
+        document.body.appendChild(createBackgroundButton);
         document.body.appendChild(csvExportButton);
         document.body.appendChild(pngExportButton);
         document.body.appendChild(rodanExportButton);
@@ -530,7 +538,7 @@ export class UIManager
     createExportElements (exportInstance)
     {
         let exportDiv = document.createElement('div'),
-            text = document.createTextNode("Exporting"),
+            text = document.createTextNode("Generating"),
             progressText = document.createTextNode("0%"),
             progressBarOuterDiv = document.createElement('div'),
             progressBarInnerDiv = document.createElement('div'),
