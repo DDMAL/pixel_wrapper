@@ -2409,12 +2409,21 @@
 	        /**
 	         * Creates a PNG for each layer where the pixels spanned by the layers are replaced by the actual image data
 	         * of the Diva page
+	         * We need to remove the background layer since otherwise the generation isn't done properly because of the
+	         * differing zoom mechanics for each layer. 
 	         */
 
 	    }, {
 	        key: 'exportLayersAsImageData',
 	        value: function exportLayersAsImageData() {
 	            var _this3 = this;
+
+	            // Ignore background layer if generated, readd at end
+	            var bgLayer;
+	            if (document.getElementById("create-background-button").innerText === "Background Generated!") {
+	                bgLayer = this.layers.pop();
+	                this.exportLayersCount--;
+	            }
 
 	            this.dataCanvases = [];
 
@@ -2445,17 +2454,28 @@
 	                _this3.dataCanvases.push(pngCanvas);
 	                _this3.replaceLayerWithImageData(_this3.pixelInstance.core.getSettings().renderer._canvas, pngCanvas, _this3.pageIndex, layerCanvas, progressCanvas);
 	            });
+
+	            this.layers.push(bgLayer);
 	        }
 
 	        /**
 	         * Creates a PNG for each layer where the pixels spanned by the layers are replaced by the actual image data
 	         * of the Diva page
+	         * We need to remove the background layer since otherwise the generation isn't done properly because of the
+	         * differing zoom mechanics for each layer.
 	         */
 
 	    }, {
 	        key: 'exportLayersAsCSV',
 	        value: function exportLayersAsCSV() {
 	            var _this4 = this;
+
+	            // Ignore background layer if generated, readd at end
+	            var bgLayer;
+	            if (document.getElementById("create-background-button").innerText === "Background Generated!") {
+	                bgLayer = this.layers.pop();
+	                this.exportLayersCount--;
+	            }
 
 	            var core = this.pixelInstance.core,
 	                height = core.publicInstance.getPageDimensionsAtZoomLevel(this.pageIndex, this.zoomLevel).height,
@@ -2476,6 +2496,8 @@
 	                layer.drawLayerInPageCoords(_this4.zoomLevel, layerCanvas, _this4.pageIndex);
 	                _this4.fillMatrix(layer, _this4.matrix, layerCanvas, progressCanvas);
 	            });
+
+	            this.layers.push(bgLayer);
 	        }
 	    }, {
 	        key: 'exportLayersToRodan',
