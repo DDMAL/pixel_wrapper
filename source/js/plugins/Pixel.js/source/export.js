@@ -171,7 +171,9 @@ export class Export
             this.replaceLayerWithImageData(this.pixelInstance.core.getSettings().renderer._canvas, pngCanvas, this.pageIndex, layerCanvas, progressCanvas);
         });
 
-        this.layers.push(bgLayer);
+        if (document.getElementById("create-background-button").innerText === "Background Generated!") { 
+            this.layers.push(bgLayer);
+        }
     }
 
     /**
@@ -209,7 +211,9 @@ export class Export
             this.fillMatrix(layer, this.matrix, layerCanvas, progressCanvas);
         });
 
-        this.layers.push(bgLayer);
+        if (document.getElementById("create-background-button").innerText === "Background Generated!") { 
+            this.layers.push(bgLayer);
+        }
     }
 
     exportLayersToRodan ()

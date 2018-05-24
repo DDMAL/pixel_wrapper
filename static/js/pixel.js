@@ -2455,7 +2455,9 @@
 	                _this3.replaceLayerWithImageData(_this3.pixelInstance.core.getSettings().renderer._canvas, pngCanvas, _this3.pageIndex, layerCanvas, progressCanvas);
 	            });
 
-	            this.layers.push(bgLayer);
+	            if (document.getElementById("create-background-button").innerText === "Background Generated!") {
+	                this.layers.push(bgLayer);
+	            }
 	        }
 
 	        /**
@@ -2497,7 +2499,9 @@
 	                _this4.fillMatrix(layer, _this4.matrix, layerCanvas, progressCanvas);
 	            });
 
-	            this.layers.push(bgLayer);
+	            if (document.getElementById("create-background-button").innerText === "Background Generated!") {
+	                this.layers.push(bgLayer);
+	            }
 	        }
 	    }, {
 	        key: 'exportLayersToRodan',
