@@ -1,6 +1,6 @@
-# Script to add pixel_wrapper functionality code to pixel.js 
+# Script to add pixel_wrapper functionality code to pixel.js
 
-f = open('./pixel.js/source/pixel.js', 'r')
+f = open('./source/js/plugins/pixel.js/source/pixel.js', 'r')
 lines = f.readlines()
 f.close()
 
@@ -21,7 +21,7 @@ if import_code in lines:
     print("The wrapper code has already been added!")
     raise SystemExit
 
-f = open('./pixel.js/source/pixel.js', 'w')
+f = open('./source/js/plugins/pixel.js/source/pixel.js', 'w')
 
 for i in range(len(lines)):
     if ('import {' in lines[i] and import_flag):
@@ -46,17 +46,20 @@ f.close()
 
 # Remove the index.html copying line from pixel.sh, which is incompatible with pixel_wrapper
 
-f = open('./pixel.js/pixel.sh', 'r')
+f = open('./source/js/plugins/pixel.js/pixel.sh', 'r')
 lines = f.readlines()
 f.close()
 
-f = open('./pixel.js/pixel.sh', 'w')
+f = open('./source/js/plugins/pixel.js/pixel.sh', 'w')
 for i in range(len(lines)):
     if ('scp ./index.html ../../../../' in lines[i]):
         lines[i] = '# scp ./index.html ../../../../\n'
     if ('echo "> gulp"' in lines[i]):
         lines[i] = 'echo "> gulp develop:rodan"\n'
         lines[i+1] = 'gulp develop:rodan\n'
+    if ('echo "> npm install -g gulp webpack"' in lines[i]):
+        lines[i] = 'echo "> npm install -g gulp@4.0.0 webpack"\n'
+        lines[i+1] = 'sudo npm install -g gulp@4.0.0 webpack\n'
     f.write(lines[i])
 
 f.close()
