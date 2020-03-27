@@ -191,13 +191,24 @@ export class PixelWrapper
                     console.log(urlList);
                     console.log("done");
 
-                    $.ajax({url: '', type: 'POST', data: JSON.stringify({'user_input': urlList}), contentType: 'application/json'});
+                    $.ajax({
+                        url: '',
+                        type: 'POST',
+                        data: JSON.stringify({'user_input': urlList}),
+                        contentType: 'application/json',
+                        success: () => {
+                            setTimeout(function(){ alert("Submission successful! Click OK to exit Pixel.js."); }, 1000);
+                            setTimeout(function(){ window.close(); }, 1200);
+                        },
+                        error: (jqXHR, textStatus, errorThrown) => {
+                            console.log(jqXHR);
+                            console.log(textStatus);
+                            console.log(errorThrown);
+                            alert("An error occurred: " + errorThrown);
+                        }
+                    });
                 }
         });
-
-        // Alert and close Pixel after submitting
-        setTimeout(function(){ alert("Submission successful! Click OK to exit Pixel.js."); }, 1000);
-        setTimeout(function(){ window.close(); }, 1200);
     }
 
     /**
