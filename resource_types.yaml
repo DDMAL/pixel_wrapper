@@ -5,5 +5,5 @@
   description: PNG image file with alpha channel
   extension: png
 - mimetype: application/zip
-  description: zip file
+  description: Package
   extension: zip
