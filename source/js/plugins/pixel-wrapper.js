@@ -228,7 +228,8 @@ export class PixelWrapper
             this.pixelInstance, 0.5, this.pixelInstance.actions);
         console.log(this.selectRegionLayer.shapes, this.selectRegionLayer.shapes.length);
 
-        // Alert and return if user hasn't created a selection region
+        // Alert and return if user hasn't created a selection region.
+        // Ask for permission to select the entire bacgkround layer for them
         if (this.selectRegionLayer.shapes.length === 0)
         {
             if(confirm("You haven't created any select regions. Press OK to select the entire background region.")) {
