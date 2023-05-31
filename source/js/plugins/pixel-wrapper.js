@@ -11,7 +11,7 @@ export class PixelWrapper
         this.layers = pixelInstance.layers;
         this.totalRegionCount;
         this.uiManager = pixelInstance.uiManager;
-        this.pageIndex = pixelInstance.core.getSettings().currentPageIndex;
+        this.pageIndex = pixelInstance.core.getSettings().activePageIndex;
         this.zoomLevel = pixelInstance.core.getSettings().zoomLevel;
         this.exportInterrupted = false;
         this.selectRegionLayer;
