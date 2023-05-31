@@ -106,14 +106,15 @@ export default class ViewerCore
         // Things that cannot be changed because of the way they are used by the script
         // Many of these are declared with arbitrary values that are changed later on
         this.viewerState = {
-            currentPageIndex: 0,        // The current page in the viewport (center-most page)
+            currentPageIndices: [0],    // The visible pages in the viewport
+            activePageIndex: 0,         // The current 'active' page in the viewport
             horizontalOffset: 0,        // Distance from the center of the diva element to the top of the current page
             horizontalPadding: 0,       // Either the fixed padding or adaptive padding
             ID: null,                   // The prefix of the IDs of the elements (usually 1-diva-)
             initialKeyScroll: false,    // Holds the initial state of enableKeyScroll
             initialSpaceScroll: false,  // Holds the initial state of enableSpaceScroll
             innerElement: null,         // The native .diva-outer DOM object
-            innerObject: {},            // $(settings.ID + 'inner'), for selecting the .diva-inner element
+            innerObject: {},            // document.getElementById(settings.ID + 'inner'), for selecting the .diva-inner element
             isActiveDiva: true,         // In the case that multiple diva panes exist on the same page, this should have events funneled to it.
             isScrollable: true,         // Used in enable/disableScrollable public methods
             isZooming: false,           // Flag to keep track of whether zooming is still in progress, for handleZoom
@@ -124,7 +125,7 @@ export default class ViewerCore
             oldZoomLevel: -1,           // Holds the previous zoom level after zooming in or out
             options: options,
             outerElement: null,         // The native .diva-outer DOM object
-            outerObject: {},            // $(settings.ID + 'outer'), for selecting the .diva-outer element
+            outerObject: {},            // document.getElementById(settings.ID + 'outer'), for selecting the .diva-outer element
             pageOverlays: new PageOverlayManager(),
             pageTools: [],              // The plugins which are enabled as page tools
             parentObject: this.parentObject, // JQuery object referencing the parent element
@@ -142,7 +143,7 @@ export default class ViewerCore
             viewport: null,             // Object caching the viewport dimensions
             viewportElement: null,
             viewportObject: null,
-            zoomDuration: 600
+            zoomDuration: 400
         };
 
         this.settings = createSettingsView([options, this.viewerState]);
@@ -284,9 +285,7 @@ export default class ViewerCore
     {
         if (e.keyCode === 27)
         {
-            this.reloadViewer({
-                inFullscreen: !this.settings.inFullscreen
-            });
+            this.publicInstance.leaveFullscreenMode();
         }
     }
 
@@ -339,7 +338,7 @@ export default class ViewerCore
         else
         {
             // Otherwise the default is to remain on the current page
-            this.viewerState.options.goDirectlyTo = this.settings.currentPageIndex;
+            this.viewerState.options.goDirectlyTo = this.settings.activePageIndex;
         }
 
         if (this.hasChangedOption(newOptions, 'inGrid') || this.hasChangedOption(newOptions, 'inBookLayout'))
@@ -478,7 +477,8 @@ export default class ViewerCore
             const options = {
                 viewport: this.viewerState.viewport,
                 outerElement: this.viewerState.outerElement,
-                innerElement: this.viewerState.innerElement
+                innerElement: this.viewerState.innerElement,
+                settings: this.settings
             };
 
             const hooks = {
@@ -634,10 +634,10 @@ export default class ViewerCore
         if (!focalPoint)
         {
             const viewport = this.viewerState.viewport;
-            const currentRegion = this.viewerState.renderer.layout.getPageRegion(this.settings.currentPageIndex);
+            const currentRegion = this.viewerState.renderer.layout.getPageRegion(this.settings.activePageIndex);
 
             focalPoint = {
-                anchorPage: this.settings.currentPageIndex,
+                anchorPage: this.settings.activePageIndex,
                 offset: {
                     left: (viewport.width / 2) - (currentRegion.left - viewport.left),
                     top: (viewport.height / 2) - (currentRegion.top - viewport.top)
@@ -653,7 +653,7 @@ export default class ViewerCore
         const focalYToCenter = (pageRegion.top + focalPoint.offset.top) -
             (this.settings.viewport.top + (this.settings.viewport.height / 2));
 
-        const getPositionForZoomLevel = function (zoomLevel, initZoom)
+        const getPositionForZoomLevel =  (zoomLevel, initZoom) =>
         {
             const zoomRatio = Math.pow(2, zoomLevel - initZoom);
 
@@ -699,6 +699,17 @@ export default class ViewerCore
             }
         });
 
+        // Deactivate zoom buttons while zooming
+        let zoomInButton = document.getElementById(this.settings.selector + 'zoom-in-button');
+        let zoomOutButton = document.getElementById(this.settings.selector + 'zoom-out-button');
+        zoomInButton.disabled = true;
+        zoomOutButton.disabled = true;
+        setTimeout(() =>
+        {
+            zoomInButton.disabled = false;
+            zoomOutButton.disabled = false;
+        }, this.settings.zoomDuration);
+
         // Send off the zoom level did change event.
         this.publish("ZoomLevelDidChange", newZoomLevel);
 
@@ -715,7 +726,7 @@ export default class ViewerCore
      */
     getYOffset (pageIndex, anchor)
     {
-        let pidx = (typeof(pageIndex) === "undefined" ? this.settings.currentPageIndex : pageIndex);
+        let pidx = (typeof(pageIndex) === "undefined" ? this.settings.activePageIndex : pageIndex);
 
         if (anchor === "center" || anchor === "centre") //how you can tell an American coded this
         {
@@ -734,7 +745,7 @@ export default class ViewerCore
     //Same as getYOffset with "left" and "right" as acceptable values instead of "top" and "bottom"
     getXOffset (pageIndex, anchor)
     {
-        let pidx = (typeof(pageIndex) === "undefined" ? this.settings.currentPageIndex : pageIndex);
+        let pidx = (typeof(pageIndex) === "undefined" ? this.settings.activePageIndex : pageIndex);
 
         if (anchor === "left")
         {
@@ -759,7 +770,7 @@ export default class ViewerCore
         if (this.viewerState.renderer)
         {
             this.updateOffsets();
-            this.viewerState.renderer.goto(this.settings.currentPageIndex, this.viewerState.verticalOffset, this.viewerState.horizontalOffset);
+            this.viewerState.renderer.goto(this.settings.activePageIndex, this.viewerState.verticalOffset, this.viewerState.horizontalOffset);
         }
 
         return true;
@@ -767,7 +778,7 @@ export default class ViewerCore
 
     updateOffsets ()
     {
-        const pageOffset = this.viewerState.renderer.layout.getPageToViewportCenterOffset(this.settings.currentPageIndex, this.viewerState.viewport);
+        const pageOffset = this.viewerState.renderer.layout.getPageToViewportCenterOffset(this.settings.activePageIndex, this.viewerState.viewport);
 
         if (pageOffset)
         {
@@ -797,12 +808,12 @@ export default class ViewerCore
 
         this.viewerState.resizeTimer = setTimeout( () =>
         {
-            const pageOffset = this.viewerState.renderer.layout.getPageToViewportCenterOffset(this.settings.currentPageIndex, this.viewerState.viewport);
+            const pageOffset = this.viewerState.renderer.layout.getPageToViewportCenterOffset(this.settings.activePageIndex, this.viewerState.viewport);
 
             if (pageOffset)
             {
                 this.reloadViewer({
-                    goDirectlyTo: this.settings.currentPageIndex,
+                    goDirectlyTo: this.settings.activePageIndex,
                     verticalOffset: pageOffset.y,
                     horizontalOffset: pageOffset.x
                 });
@@ -810,7 +821,7 @@ export default class ViewerCore
             else
             {
                 this.reloadViewer({
-                    goDirectlyTo: this.settings.currentPageIndex
+                    goDirectlyTo: this.settings.activePageIndex
                 });
             }
         }, 200);
@@ -865,7 +876,6 @@ export default class ViewerCore
         else
             direction = newScrollLeft - previousLeftScroll;
 
-        //give adjust the direction we care about
         this.viewerState.renderer.adjust();
 
         const primaryScroll = (this.settings.verticallyOriented || this.settings.inGrid) ? newScrollTop : newScrollLeft;
@@ -1082,23 +1092,6 @@ export default class ViewerCore
 
         this.publish('NumberOfPagesDidChange', this.settings.numPages);
 
-        if (this.settings.enableAutoTitle)
-        {
-            let title = document.getElementById(this.settings.selector + 'title');
-
-            if (title)
-            {
-                title.innerHTML(this.settings.manifest.itemTitle);
-            }
-            else
-            {
-                this.settings.parentObject.insertBefore(
-                    elt('div', this.elemAttrs('title'), [this.settings.manifest.itemTitle]),
-                    this.settings.parentObject.firstChild
-                );
-            }
-        }
-
         // Calculate the horizontal and vertical inter-page padding based on the dimensions of the average zoom level
         if (this.settings.adaptivePadding > 0)
         {
@@ -1175,6 +1168,23 @@ export default class ViewerCore
         //prep dimensions one last time now that pages have loaded
         this.updatePanelSize();
 
+        if (this.settings.enableAutoTitle)
+        {
+            let title = document.getElementById(this.settings.selector + 'title');
+
+            if (title)
+            {
+                title.innerHTML = this.settings.manifest.itemTitle;
+            }
+            else
+            {
+                this.settings.parentObject.insertBefore(
+                    elt('div', this.elemAttrs('title'), [this.settings.manifest.itemTitle]),
+                    this.settings.parentObject.firstChild
+                );
+            }
+        }
+
         // FIXME: This is a hack to ensure that the outerElement scrollbars are taken into account
         if (this.settings.verticallyOriented)
             this.viewerState.innerElement.style.minWidth = this.settings.panelWidth + 'px';
@@ -1186,12 +1196,12 @@ export default class ViewerCore
         if (anchoredVertically || anchoredHorizontally)
         {
             if (anchoredVertically)
-                this.viewerState.verticalOffset = this.getYOffset(this.settings.currentPageIndex, "top");
+                this.viewerState.verticalOffset = this.getYOffset(this.settings.activePageIndex, "top");
 
             if (anchoredHorizontally)
-                this.viewerState.horizontalOffset = this.getXOffset(this.settings.currentPageIndex, "center");
+                this.viewerState.horizontalOffset = this.getXOffset(this.settings.activePageIndex, "center");
 
-            this.viewerState.renderer.goto(this.settings.currentPageIndex, this.viewerState.verticalOffset, this.viewerState.horizontalOffset);
+            this.viewerState.renderer.goto(this.settings.activePageIndex, this.viewerState.verticalOffset, this.viewerState.horizontalOffset);
         }
 
         // signal that everything should be set up and ready to go.
@@ -1330,10 +1340,10 @@ export default class ViewerCore
 
         // Fall back to current page
         // FIXME: Would be better to use the closest page or something
-        const currentRegion = this.viewerState.renderer.layout.getPageRegion(this.settings.currentPageIndex);
+        const currentRegion = this.viewerState.renderer.layout.getPageRegion(this.settings.activePageIndex);
 
         return {
-            anchorPage: this.settings.currentPageIndex,
+            anchorPage: this.settings.activePageIndex,
             offset: {
                 left: docCoords.left - currentRegion.left,
                 top: docCoords.top - currentRegion.top
@@ -1351,16 +1361,39 @@ export default class ViewerCore
      *
      * @param pageIndex
      */
-    setCurrentPage (pageIndex)
+    setCurrentPages (activePage, visiblePages)
     {
-        if (this.viewerState.currentPageIndex !== pageIndex)
+        if (!arraysEqual(this.viewerState.currentPageIndices, visiblePages))
         {
-            this.viewerState.currentPageIndex = pageIndex;
-            this.publish("VisiblePageDidChange", pageIndex, this.getPageName(pageIndex));
+            this.viewerState.currentPageIndices = visiblePages;
+            if (this.viewerState.activePageIndex !== activePage)
+            {
+                this.viewerState.activePageIndex = activePage;
+                this.publish("ActivePageDidChange", activePage);
+            }
+            this.publish("VisiblePageDidChange", visiblePages);
 
             // Publish an event if the page we're switching to has other images.
-            if (this.viewerState.manifest.pages[pageIndex].otherImages.length > 0)
-                this.publish('VisiblePageHasAlternateViews', pageIndex);
+            if (this.viewerState.manifest.pages[activePage].otherImages.length > 0)
+                this.publish('VisiblePageHasAlternateViews', activePage);
+        }
+        else if (this.viewerState.activePageIndex !== activePage)
+        {
+            this.viewerState.activePageIndex = activePage;
+            this.publish("ActivePageDidChange", activePage);
+        }
+
+        function arraysEqual (a, b)
+        {
+            if (a.length !== b.length)
+                return false;
+
+            for (let i = 0, len = a.length; i < len; i++)
+            {
+                if (a[i] !== b[i])
+                    return false;
+            }
+            return true;
         }
     }
 
@@ -1384,6 +1417,7 @@ export default class ViewerCore
         if (!this.viewerState.isScrollable)
         {
             this.bindMouseEvents();
+            this.enableDragScrollable();
             this.viewerState.options.enableKeyScroll = this.viewerState.initialKeyScroll;
             this.viewerState.options.enableSpaceScroll = this.viewerState.initialSpaceScroll;
             this.viewerState.viewportElement.style.overflow = 'auto';
@@ -1391,14 +1425,20 @@ export default class ViewerCore
         }
     }
 
+    enableDragScrollable ()
+    {
+        if (this.viewerState.viewportObject.hasAttribute('nochilddrag'))
+            this.viewerState.viewportObject.removeAttribute('nochilddrag');
+    }
+
     disableScrollable ()
     {
         if (this.viewerState.isScrollable)
         {
-            // block dragging/double-click zooming
-            if (this.viewerState.innerObject.hasClass('diva-dragger'))
-                this.viewerState.innerObject.mousedown = null;
+            // block dragging
+            this.disableDragScrollable();
 
+            // block double-click zooming
             this.viewerState.outerObject.dblclick = null;
             this.viewerState.outerObject.contextmenu = null;
 
@@ -1413,6 +1453,12 @@ export default class ViewerCore
 
             this.viewerState.isScrollable = false;
         }
+    }
+
+    disableDragScrollable ()
+    {
+        if (!this.viewerState.viewportObject.hasAttribute('nochilddrag'))
+            this.viewerState.viewportObject.setAttribute('nochilddrag', "");
     }
 
     // isValidOption (key, value)
