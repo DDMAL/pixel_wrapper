@@ -125,8 +125,7 @@ export class PixelWrapper
         {
             while (numLayers <= 0 || numLayers > 7)
             {
-                numLayers = parseInt(prompt("How many layers will you classify?\n" +
-                "This must be two (2) less than the total number of output ports.", 3));
+                numLayers = parseInt(prompt("How many layers will you classify?", 3));
             }
         }
 
