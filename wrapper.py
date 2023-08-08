@@ -195,6 +195,69 @@ class PixelInteractive(RodanTask):
             'minimum': 1,
             'maximum': 1,
             'is_list': False
+        },
+        {
+            'name': 'PNG - Layer 1 Output',
+            'resource_types': ['image/rgba+png'],
+            'minimum': 0,
+            'maximum': 1,
+            'is_list': False
+        },
+        {
+            'name': 'PNG - Layer 2 Output',
+            'resource_types': ['image/rgba+png'],
+            'minimum': 0,
+            'maximum': 1,
+            'is_list': False
+        },
+        {
+            'name': 'PNG - Layer 3 Output',
+            'resource_types': ['image/rgba+png'],
+            'minimum': 0,
+            'maximum': 1,
+            'is_list': False
+        },
+        {
+            'name': 'PNG - Layer 4 Output',
+            'resource_types': ['image/rgba+png'],
+            'minimum': 0,
+            'maximum': 1,
+            'is_list': False
+        },
+        {
+            'name': 'PNG - Layer 5 Output',
+            'resource_types': ['image/rgba+png'],
+            'minimum': 0,
+            'maximum': 1,
+            'is_list': False
+        },
+        {
+            'name': 'PNG - Layer 6 Output',
+            'resource_types': ['image/rgba+png'],
+            'minimum': 0,
+            'maximum': 1,
+            'is_list': False
+        },
+        {
+            'name': 'PNG - Layer 7 Output',
+            'resource_types': ['image/rgba+png'],
+            'minimum': 0,
+            'maximum': 1,
+            'is_list': False
+        },
+        {
+            'name': 'Background',
+            'resource_types': ['image/rgba+png'],
+            'minimum': 0,
+            'maximum': 1,
+            'is_list': False
+        },
+        {
+            'name': 'Region',
+            'resource_types': ['image/rgba+png'],
+            'minimum': 0,
+            'maximum': 1,
+            'is_list': False
         }
     ]
 
@@ -268,12 +331,37 @@ class PixelInteractive(RodanTask):
 
                 if i == 0:
                     zipMe.writestr(('rgba PNG - Layer 0 (Background).png'), buf)
+                    # Write to output
+                    if "Background" in outputs.keys():
+                        encoded_data = buf.tobytes()
+                        output_file_path = outputs["Background"][0]['resource_path']
+                        with open(output_file_path, 'wb') as f:
+                            f.write(encoded_data)
+                        logger.info(f"Write to Background : {outputs.keys()}")
+                        
                 elif i == len(output_list) - 1:
                     # if settings['Crop Image']:
                     #     break
                     zipMe.writestr(('rgba PNG - Selected regions.png'), buf)
+                    if "Region" in outputs.keys():
+                        #os.rename('rgba PNG - Selected regions.png', outputs["Region"][0]['resource_path'])
+                        encoded_data = buf.tobytes()
+                        output_file_path = outputs["Region"][0]['resource_path']
+                        with open(output_file_path, 'wb') as f:
+                            f.write(encoded_data)
+                        logger.info(f"Write to Region : {outputs.keys()}")
                 else:
                     zipMe.writestr(('rgba PNG - Layer {0}.png').format(i), buf)
+                    prefix = 'rgba PNG - Layer {0}'.format(i)
+                    #'name': 'PNG - Layer 7 Output',
+                    qkey = "PNG - Layer {} Output".format(i)
+                    if qkey in outputs.keys():
+                        #os.rename('{}.png'.format(prefix), outputs["{} Output".format(prefix)][0]['resource_path'])
+                        encoded_data = buf.tobytes()
+                        output_file_path = outputs[qkey][0]['resource_path']
+                        with open(output_file_path, 'wb') as f:
+                            f.write(encoded_data)
+                        logger.info(f"Write to {qkey} : {outputs.keys()}")
 
             # if settings['Crop Image']:
             #     background = background[y:y+h, x:x+w]
@@ -282,6 +370,7 @@ class PixelInteractive(RodanTask):
 
         # add the files to the zip file
         os.rename(outfile_path,outputs["ZIP"][0]['resource_path'])
+        logger.info("Write to zip and return True")
         return True
 
     def validate_my_user_input(self, inputs, settings, user_input):
