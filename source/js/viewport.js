@@ -5,10 +5,7 @@ export default class Viewport
         options = options || {};
 
         this.intersectionTolerance = options.intersectionTolerance || 0;
-        this.maxExtent = options.maxExtent || 2000;
-
         this.outer = outer;
-
         this._top = this._left = this._width = this._height = this._innerDimensions = null;
 
         this.invalidate();
@@ -46,8 +43,8 @@ export default class Viewport
     invalidate ()
     {
         // FIXME: Should this check the inner dimensions as well?
-        this._width = clampMax(this.outer.clientWidth, this.maxExtent);
-        this._height = clampMax(this.outer.clientHeight, this.maxExtent);
+        this._width = this.outer.clientWidth;
+        this._height = this.outer.clientHeight;
 
         this._top = this.outer.scrollTop;
         this._left = this.outer.scrollLeft;

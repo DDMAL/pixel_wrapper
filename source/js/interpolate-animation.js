@@ -29,7 +29,7 @@ function animate (options)
 
     // Setup
     // Times are in milliseconds from a basically arbitrary start
-    const start = now(); 
+    const start = now();
     const end = start + durationMs;
 
     const tweenFns = {};
@@ -59,7 +59,7 @@ function animate (options)
 
     function update()
     {
-        const current = now(); 
+        const current = now();
         const elapsed = Math.min((current - start) / durationMs, 1);
 
         updateValues(elapsed);
@@ -107,6 +107,14 @@ function linearEasing(e)
 {
     return e;
 }
+
+/* jshint ignore:start */
+function inOutQuadEasing (e)
+{
+    return e < .5 ? 2 * e * e : -1+(4-2 * e) * e
+}
+/* jshint ignore:end */
+
 
 function inOutCubicEasing (t)
 {

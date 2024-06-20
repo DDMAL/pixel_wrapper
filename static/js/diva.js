@@ -3906,61 +3906,16 @@ function findIndex(array, predicate) {
 
 
 Object.defineProperty(exports, "__esModule", {
-  value: true
+    value: true
 });
 
 var _events = __webpack_require__(/*! ./utils/events */ "./source/js/utils/events.js");
 
-// import PluginRegistry from './plugin-registry';
-
 var diva = {
-  Events: _events.Events
-
-  // registerPlugin: function (plugin)
-  // {
-  //     PluginRegistry.register(plugin);
-  // },
-
-  /**
-   * Create a new Diva instance at the given element
-   *
-   * @param element {Element}
-   * @param options {Object}
-   * @returns {Diva}
-   */
-  // create: function (element, options)
-  // {
-  //     if (diva.find(element))
-  //         throw new Error('Diva is already initialized on ' + reprElem(element));
-  //
-  //     const $elem = $(element);
-  //     $elem.diva(options);
-  //
-  //     return $elem.data('diva');
-  // },
-
-  /**
-   * Return the Diva instance attached to the
-   * element, if any.
-   *
-   * @param element
-   * @returns {Diva|null}
-   */
-  // find: function (element)
-  // {
-  //     return $(element).data('diva') || null;
-  // }
+    Events: _events.Events
 };
 
 exports.default = diva;
-
-// function reprElem(elem)
-// {
-//     const id = elem.id ? '#' + elem.id : elem.id;
-//     const classes = elem.className ? '.' + elem.className.split(/\s+/g).join('.') : '';
-//
-//     return (id ? id : elem.tagName.toLowerCase()) + classes;
-// }
 
 /***/ }),
 
@@ -4033,6 +3988,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
  **/
 var Diva = function () {
     function Diva(element, options) {
+        var _this = this;
+
         _classCallCheck(this, Diva);
 
         /*
@@ -4051,6 +4008,7 @@ var Diva = function () {
         }
 
         this.options = Object.assign({
+            acceptHeader: "application/json", // The header to send off to the server in content negotiation
             adaptivePadding: 0.05, // The ratio of padding to the page dimension
             arrowScrollAmount: 40, // The amount (in pixels) to scroll by when using arrow keys
             blockMobileMove: false, // Prevent moving or scrolling the page on mobile devices
@@ -4063,6 +4021,7 @@ var Diva = function () {
             enableGridIcon: true, // A grid view of all the pages
             enableGridControls: 'buttons', // Specify control of pages per grid row in Grid view. Possible values: 'buttons' (+/-), 'slider'. Any other value disables the controls.
             enableImageTitles: true, // Adds "Page {n}" title to page images if true
+            enableIndexAsLabel: false, // Use index numbers instead of page labels in the page n-m display.
             enableKeyScroll: true, // Captures scrolling using the arrow and page up/down keys regardless of page focus. When off, defers to default browser scrolling behavior.
             enableLinkIcon: true, // Controls the visibility of the link icon
             enableNonPagedVisibilityIcon: true, // Controls the visibility of the icon to toggle the visibility of non-paged pages. (Automatically hidden if no 'non-paged' pages).
@@ -4074,11 +4033,9 @@ var Diva = function () {
             fixedHeightGrid: true, // So each page in grid view has the same height (only widths differ)
             goDirectlyTo: 0, // Default initial page to show (0-indexed)
             hashParamSuffix: null, // Used when there are multiple document viewers on a page
-            iipServerURL: '', // The URL to the IIPImage installation, including the `?FIF=` - *REQUIRED*, unless using IIIF
             inFullscreen: false, // Set to true to load fullscreen mode initially
             inBookLayout: false, // Set to true to view the document with facing pages in document mode
             inGrid: false, // Set to true to load grid view initially
-            imageDir: '', // Image directory, either absolute path or relative to IIP's FILESYSTEM_PREFIX - *REQUIRED*, unless using IIIF
             maxPagesPerRow: 8, // Maximum number of pages per row in grid view
             maxZoomLevel: -1, // Optional; defaults to the max zoom returned in the JSON response
             minPagesPerRow: 2, // Minimum pages per row in grid view. Recommended default.
@@ -4113,16 +4070,24 @@ var Diva = function () {
 
         this.viewerState = viewerCore.getInternalState();
         this.settings = viewerCore.getSettings();
-        this.toolbar = new _toolbar2.default(this);
+        this.toolbar = this.settings.enableToolbar ? new _toolbar2.default(this) : null;
 
         wrapperElement.id = this.settings.ID + 'wrapper';
 
         this.divaState = {
             viewerCore: viewerCore,
-            toolbar: this.settings.enableToolbar ? this.toolbar : null
+            toolbar: this.toolbar
         };
 
-        this.toolbar.render();
+        // only render the toolbar after the object has been loaded
+        var handle = _divaGlobal2.default.Events.subscribe('ObjectDidLoad', function () {
+            if (_this.toolbar !== null) {
+                _this.toolbar.render();
+            }
+
+            _divaGlobal2.default.Events.unsubscribe(handle);
+        });
+
         this.hashState = this._getHashParamState();
 
         this._loadOrFetchObjectData();
@@ -4136,22 +4101,21 @@ var Diva = function () {
     _createClass(Diva, [{
         key: '_loadOrFetchObjectData',
         value: function _loadOrFetchObjectData() {
-            var _this = this;
+            var _this2 = this;
 
             if (_typeof(this.settings.objectData) === 'object') {
-                var self = this;
                 // Defer execution until initialization has completed
                 setTimeout(function () {
-                    self._loadObjectData(self.settings.objectData, self.hashState);
+                    _this2._loadObjectData(_this2.settings.objectData, _this2.hashState);
                 }, 0);
             } else {
                 var pendingManifestRequest = fetch(this.settings.objectData, {
                     headers: {
-                        "Accept": "application/json"
+                        "Accept": this.settings.acceptHeader
                     }
                 }).then(function (response) {
                     if (!response.ok) {
-                        _this._ajaxError(response);
+                        _this2._ajaxError(response);
 
                         var error = new Error(response.statusText);
                         error.response = response;
@@ -4159,7 +4123,7 @@ var Diva = function () {
                     }
                     return response.json();
                 }).then(function (data) {
-                    _this._loadObjectData(data, _this.hashState);
+                    _this2._loadObjectData(data, _this2.hashState);
                 });
 
                 // Store the pending request so that it can be cancelled in the event that Diva needs to be destroyed
@@ -4219,9 +4183,7 @@ var Diva = function () {
             }
 
             // trigger ManifestDidLoad event
-            // FIXME: Why is this triggered before the manifest is parsed? See https://github.com/DDMAL/diva.js/issues/357
             _divaGlobal2.default.Events.publish('ManifestDidLoad', [responseData], this);
-
             manifest = _imageManifest2.default.fromIIIF(responseData);
             var loadOptions = hashState ? this._getLoadOptionsForState(hashState, manifest) : {};
 
@@ -4237,12 +4199,12 @@ var Diva = function () {
     }, {
         key: '_getHashParamState',
         value: function _getHashParamState() {
-            var _this2 = this;
+            var _this3 = this;
 
             var state = {};
 
             ['f', 'v', 'z', 'n', 'i', 'p', 'y', 'x'].forEach(function (param) {
-                var value = _hashParams2.default.get(param + _this2.settings.hashParamSuffix);
+                var value = _hashParams2.default.get(param + _this3.settings.hashParamSuffix);
 
                 // `false` is returned if the value is missing
                 if (value !== false) state[param] = value;
@@ -4328,7 +4290,7 @@ var Diva = function () {
                     };
 
                 default:
-                    return null;
+                    return {};
             }
         }
 
@@ -4369,15 +4331,15 @@ var Diva = function () {
             }
 
             var layout = this.divaState.viewerCore.getCurrentLayout();
-            var pageOffset = layout.getPageToViewportCenterOffset(this.settings.currentPageIndex, this.viewerState.viewport);
+            var pageOffset = layout.getPageToViewportCenterOffset(this.settings.activePageIndex, this.viewerState.viewport);
 
             return {
                 'f': this.settings.inFullscreen,
                 'v': view,
                 'z': this.settings.zoomLevel,
                 'n': this.settings.pagesPerRow,
-                'i': this.settings.enableFilename ? this.settings.manifest.pages[this.settings.currentPageIndex].f : false,
-                'p': this.settings.enableFilename ? false : this.settings.currentPageIndex + 1,
+                'i': this.settings.enableFilename ? this.settings.manifest.pages[this.settings.activePageIndex].f : false,
+                'p': this.settings.enableFilename ? false : this.settings.activePageIndex + 1,
                 'y': pageOffset ? pageOffset.y : false,
                 'x': pageOffset ? pageOffset.x : false
             };
@@ -4439,6 +4401,37 @@ var Diva = function () {
             this._reloadViewer({
                 inFullscreen: !this.settings.inFullscreen
             });
+
+            // handle toolbar opacity in fullscreen
+            var t = void 0;
+            var hover = false;
+            var tools = document.getElementById(this.settings.selector + 'tools');
+            var TIMEOUT = 2000;
+
+            if (this.settings.inFullscreen) {
+                tools.classList.add("diva-fullscreen-tools");
+
+                document.addEventListener('mousemove', toggleOpacity.bind(this));
+                document.getElementsByClassName('diva-viewport')[0].addEventListener('scroll', toggleOpacity.bind(this));
+                tools.addEventListener('mouseenter', function () {
+                    hover = true;
+                });
+                tools.addEventListener('mouseleave', function () {
+                    hover = false;
+                });
+            } else {
+                tools.classList.remove("diva-fullscreen-tools");
+            }
+
+            function toggleOpacity() {
+                tools.style.opacity = 1;
+                clearTimeout(t);
+                if (!hover && this.settings.inFullscreen) {
+                    t = setTimeout(function () {
+                        tools.style.opacity = 0;
+                    }, TIMEOUT);
+                }
+            }
         }
 
         /**
@@ -4456,7 +4449,7 @@ var Diva = function () {
             this._reloadViewer({
                 inGrid: false,
                 verticallyOriented: verticallyOriented,
-                goDirectlyTo: this.settings.currentPageIndex,
+                goDirectlyTo: this.settings.activePageIndex,
                 verticalOffset: this.divaState.viewerCore.getYOffset(),
                 horizontalOffset: this.divaState.viewerCore.getXOffset()
             });
@@ -4651,18 +4644,6 @@ var Diva = function () {
         }
 
         /**
-         * Close all popups on the toolbar.
-         *
-         * @public
-         **/
-
-    }, {
-        key: 'closePopups',
-        value: function closePopups() {
-            this.divaState.toolbar.closePopups();
-        }
-
-        /**
          *  Deactivate this diva instance through the active Diva controller.
          *
          *  @public
@@ -4711,6 +4692,30 @@ var Diva = function () {
         }
 
         /**
+         * Disables document drag scrolling
+         *
+         * @public
+         */
+
+    }, {
+        key: 'disableDragScrollable',
+        value: function disableDragScrollable() {
+            this.divaState.viewerCore.disableDragScrollable();
+        }
+
+        /**
+         * Enables document drag scrolling
+         *
+         * @public
+         */
+
+    }, {
+        key: 'enableDragScrollable',
+        value: function enableDragScrollable() {
+            this.divaState.viewerCore.enableDragScrollable();
+        }
+
+        /**
          * Enter fullscreen mode if currently not in fullscreen mode. If currently in fullscreen
          * mode this will have no effect.
          *
@@ -4751,30 +4756,18 @@ var Diva = function () {
         }
 
         /**
-         * Return the current URL for the viewer, including the hash parameters reflecting
-         * the current state of the viewer.
+         * Returns an array of all page image URIs in the document.
          *
          * @public
-         * @returns {string} - The URL for the current view state.
+         * @returns {Array} - An array of all the URIs in the document.
          * */
 
     }, {
-        key: 'getCurrentURL',
-        value: function getCurrentURL() {
-            return this._getCurrentURL();
-        }
-
-        /**
-         * Returns the title of the document, based on the label in the IIIF manifest.
-         *
-         * @public
-         * @returns {string} - The current title of the object from the label key in the IIIF Manifest.
-         **/
-
-    }, {
-        key: 'getItemTitle',
-        value: function getItemTitle() {
-            return this.settings.manifest.itemTitle;
+        key: 'getAllPageURIs',
+        value: function getAllPageURIs() {
+            return this.settings.manifest.pages.map(function (pg) {
+                return pg.f;
+            });
         }
 
         /**
@@ -4787,7 +4780,7 @@ var Diva = function () {
     }, {
         key: 'getCurrentCanvas',
         value: function getCurrentCanvas() {
-            return this.settings.manifest.pages[this.settings.currentPageIndex].canvas;
+            return this.settings.manifest.pages[this.settings.activePageIndex].canvas;
         }
 
         /**
@@ -4801,7 +4794,7 @@ var Diva = function () {
     }, {
         key: 'getCurrentPageDimensionsAtCurrentZoomLevel',
         value: function getCurrentPageDimensionsAtCurrentZoomLevel() {
-            return this.getPageDimensionsAtCurrentZoomLevel(this.settings.currentPageIndex);
+            return this.getPageDimensionsAtCurrentZoomLevel(this.settings.activePageIndex);
         }
 
         /**
@@ -4816,20 +4809,20 @@ var Diva = function () {
         key: 'getCurrentPageFilename',
         value: function getCurrentPageFilename() {
             console.warn('This method will be deprecated in the next version of Diva. Please use getCurrentPageURI instead.');
-            return this.settings.manifest.pages[this.settings.currentPageIndex].f;
+            return this.settings.manifest.pages[this.settings.activePageIndex].f;
         }
 
         /**
-         * Returns the current URI for the visible page.
+         * Returns an array of page indices that are visible in the viewport.
          *
          * @public
-         * @returns {string} - The URI for the current page image.
+         * @returns {array} - The 0-based indices array for the currently visible pages.
          **/
 
     }, {
-        key: 'getCurrentPageURI',
-        value: function getCurrentPageURI() {
-            return this.settings.manifest.pages[this.settings.currentPageIndex].f;
+        key: 'getCurrentPageIndices',
+        value: function getCurrentPageIndices() {
+            return this.settings.currentPageIndices;
         }
 
         /**
@@ -4840,9 +4833,9 @@ var Diva = function () {
          **/
 
     }, {
-        key: 'getCurrentPageIndex',
-        value: function getCurrentPageIndex() {
-            return this.settings.currentPageIndex;
+        key: 'getActivePageIndex',
+        value: function getActivePageIndex() {
+            return this.settings.activePageIndex;
         }
 
         /**
@@ -4855,7 +4848,34 @@ var Diva = function () {
     }, {
         key: 'getCurrentPageOffset',
         value: function getCurrentPageOffset() {
-            return this.getPageOffset(this.settings.currentPageIndex);
+            return this.getPageOffset(this.settings.activePageIndex);
+        }
+
+        /**
+         * Returns the current URI for the visible page.
+         *
+         * @public
+         * @returns {string} - The URI for the current page image.
+         **/
+
+    }, {
+        key: 'getCurrentPageURI',
+        value: function getCurrentPageURI() {
+            return this.settings.manifest.pages[this.settings.activePageIndex].f;
+        }
+
+        /**
+         * Return the current URL for the viewer, including the hash parameters reflecting
+         * the current state of the viewer.
+         *
+         * @public
+         * @returns {string} - The URL for the current view state.
+         * */
+
+    }, {
+        key: 'getCurrentURL',
+        value: function getCurrentURL() {
+            return this._getCurrentURL();
         }
 
         /**
@@ -4871,21 +4891,6 @@ var Diva = function () {
         value: function getFilenames() {
             console.warn('This will be removed in the next version of Diva. Use getAllPageURIs instead.');
 
-            return this.settings.manifest.pages.map(function (pg) {
-                return pg.f;
-            });
-        }
-
-        /**
-         * Returns an array of all page image URIs in the document.
-         *
-         * @public
-         * @returns {Array} - An array of all the URIs in the document.
-         * */
-
-    }, {
-        key: 'getAllPageURIs',
-        value: function getAllPageURIs() {
             return this.settings.manifest.pages.map(function (pg) {
                 return pg.f;
             });
@@ -4930,8 +4935,20 @@ var Diva = function () {
     }, {
         key: 'getInstanceSelector',
         value: function getInstanceSelector() {
-            console.log(this);
             return this.divaState.viewerCore.selector;
+        }
+
+        /**
+         * Returns the title of the document, based on the label in the IIIF manifest.
+         *
+         * @public
+         * @returns {string} - The current title of the object from the label key in the IIIF Manifest.
+         **/
+
+    }, {
+        key: 'getItemTitle',
+        value: function getItemTitle() {
+            return this.settings.manifest.itemTitle;
         }
 
         /**
@@ -5022,6 +5039,25 @@ var Diva = function () {
         }
 
         /**
+         * Returns the dimensions of a given page at the current zoom level.
+         * Also works in Grid view
+         *
+         * @public
+         * @param {number} pageIndex - The 0-based page index
+         * @returns {object} - An object containing the page dimensions at the current zoom level.
+         * */
+
+    }, {
+        key: 'getPageDimensionsAtCurrentZoomLevel',
+        value: function getPageDimensionsAtCurrentZoomLevel(pageIndex) {
+            var pidx = parseInt(pageIndex, 10);
+
+            if (!this._isPageIndexValid(pidx)) throw new Error('Invalid Page Index');
+
+            return this.divaState.viewerCore.getCurrentLayout().getPageDimensions(pidx);
+        }
+
+        /**
          * Get page dimensions at a given zoom level
          *
          * @public
@@ -5044,25 +5080,6 @@ var Diva = function () {
                 width: pgAtZoom.w,
                 height: pgAtZoom.h
             };
-        }
-
-        /**
-         * Returns the dimensions of a given page at the current zoom level.
-         * Also works in Grid view
-         *
-         * @public
-         * @param {number} pageIndex - The 0-based page index
-         * @returns {object} - An object containing the page dimensions at the current zoom level.
-         * */
-
-    }, {
-        key: 'getPageDimensionsAtCurrentZoomLevel',
-        value: function getPageDimensionsAtCurrentZoomLevel(pageIndex) {
-            var pidx = parseInt(pageIndex, 10);
-
-            if (!this._isPageIndexValid(pidx)) throw new Error('Invalid Page Index');
-
-            return this.divaState.viewerCore.getCurrentLayout().getPageDimensions(pidx);
         }
 
         /**
@@ -5172,7 +5189,7 @@ var Diva = function () {
     }, {
         key: 'gotoPageByIndex',
         value: function gotoPageByIndex(pageIndex, xAnchor, yAnchor) {
-            this._gotoPageByIndex(pageIndex, xAnchor, yAnchor);
+            return this._gotoPageByIndex(pageIndex, xAnchor, yAnchor);
         }
 
         /**
@@ -5370,7 +5387,7 @@ var Diva = function () {
         key: 'leaveFullscreenMode',
         value: function leaveFullscreenMode() {
             if (this.settings.inFullscreen) {
-                this.toggleFullscreen();
+                this._toggleFullscreen();
                 return true;
             }
 
@@ -5430,19 +5447,6 @@ var Diva = function () {
         }
 
         /**
-         * Show non-paged pages.
-         *
-         * @public
-         * @returns {boolean} - True if the operation was successful.
-         **/
-
-    }, {
-        key: 'showNonPagedPages',
-        value: function showNonPagedPages() {
-            this._reloadViewer({ showNonPagedPages: true });
-        }
-
-        /**
          * Sets the zoom level.
          *
          * @public
@@ -5459,6 +5463,19 @@ var Diva = function () {
             }
 
             return this.divaState.viewerCore.zoom(zoomLevel);
+        }
+
+        /**
+         * Show non-paged pages.
+         *
+         * @public
+         * @returns {boolean} - True if the operation was successful.
+         **/
+
+    }, {
+        key: 'showNonPagedPages',
+        value: function showNonPagedPages() {
+            this._reloadViewer({ showNonPagedPages: true });
         }
 
         /**
@@ -5629,6 +5646,20 @@ var DocumentHandler = function () {
                 var overlay = new _pageToolsOverlay2.default(i, viewerCore);
                 this._overlays.push(overlay);
                 this._viewerCore.addPageOverlay(overlay);
+
+                // create dummy label for width calculation
+                // this is necessary because the _pageToolsElem is only created on mount
+                // so there's no other way to get its width before the pages are loaded
+                // (which we need to avoid their width temporarily being 0 while loading)
+                var dummyLabel = document.createElement('span');
+                dummyLabel.innerHTML = viewerCore.settings.manifest.pages[i].l;
+                dummyLabel.classList.add('diva-page-labels');
+                dummyLabel.setAttribute('style', 'display: inline-block;');
+                document.body.appendChild(dummyLabel);
+                var labelWidth = dummyLabel.clientWidth;
+                document.body.removeChild(dummyLabel);
+
+                overlay.labelWidth = labelWidth;
             }
         }
     }
@@ -5688,19 +5719,31 @@ var DocumentHandler = function () {
             // initial load
             this._handleZoomLevelChange();
 
-            var currentPageIndex = this._viewerCore.getSettings().currentPageIndex;
+            var currentPageIndex = this._viewerCore.getSettings().activePageIndex;
             var fileName = this._viewerCore.getPageName(currentPageIndex);
             this._viewerCore.publish("DocumentDidLoad", currentPageIndex, fileName);
         }
     }, {
         key: 'onViewDidUpdate',
         value: function onViewDidUpdate(renderedPages, targetPage) {
+            var _this = this;
+
             var currentPage = targetPage !== null ? targetPage : getCentermostPage(renderedPages, this._viewerCore.getCurrentLayout(), this._viewerCore.getViewport());
+
+            // calculate the visible pages from the rendered pages
+            var temp = this._viewerState.viewport.intersectionTolerance;
+            // without setting to 0, isPageVisible returns true for pages out of viewport by intersectionTolerance
+            this._viewerState.viewport.intersectionTolerance = 0;
+            var visiblePages = renderedPages.filter(function (index) {
+                return _this._viewerState.renderer.isPageVisible(index);
+            });
+            // reset back to original value after getting true visible pages
+            this._viewerState.viewport.intersectionTolerance = temp;
 
             // Don't change the current page if there is no page in the viewport
             // FIXME: Would be better to fall back to the page closest to the viewport
             if (currentPage !== null) {
-                this._viewerCore.setCurrentPage(currentPage);
+                this._viewerCore.setCurrentPages(currentPage, visiblePages);
             }
 
             if (targetPage !== null) {
@@ -5731,10 +5774,10 @@ var DocumentHandler = function () {
     }, {
         key: 'destroy',
         value: function destroy() {
-            var _this = this;
+            var _this2 = this;
 
             this._overlays.forEach(function (overlay) {
-                _this._viewerCore.removePageOverlay(overlay);
+                _this2._viewerCore.removePageOverlay(overlay);
             }, this);
         }
     }]);
@@ -5754,10 +5797,10 @@ function getCentermostPage(renderedPages, layout, viewport) {
     // http://gamedev.stackexchange.com/questions/44483/how-do-i-calculate-distance-between-a-point-and-an-axis-aligned-rectangle
     var centerPage = (0, _lodash2.default)(renderedPages, function (pageIndex) {
         var dims = layout.getPageDimensions(pageIndex);
-        var imageOffset = layout.getPageOffset(pageIndex, { excludePadding: false });
+        var imageOffset = layout.getPageOffset(pageIndex, { includePadding: true });
 
-        var midX = imageOffset.left + dims.height / 2;
-        var midY = imageOffset.top + dims.width / 2;
+        var midX = imageOffset.left + dims.width / 2;
+        var midY = imageOffset.top + dims.height / 2;
 
         var dx = Math.max(Math.abs(centerX - midX) - dims.width / 2, 0);
         var dy = Math.max(Math.abs(centerY - midY) - dims.height / 2, 0);
@@ -5874,11 +5917,9 @@ var DocumentLayout = function () {
             if (!pageInfo) return null;
 
             var region = getPageRegionFromPageInfo(pageInfo);
+            var padding = pageInfo.group.padding;
 
-            if (options && options.excludePadding) {
-                // FIXME?
-                var padding = pageInfo.group.padding;
-
+            if (options && options.includePadding) {
                 return {
                     top: region.top + padding.top,
                     left: region.left + padding.left,
@@ -5887,7 +5928,14 @@ var DocumentLayout = function () {
                 };
             }
 
-            return region;
+            return {
+                top: region.top,
+                left: region.left,
+                // need to account for plugin icons below the page, see 
+                // https://github.com/DDMAL/diva.js/issues/436
+                bottom: region.bottom + padding.top,
+                right: region.right
+            };
         }
 
         /**
@@ -6358,11 +6406,23 @@ var GridHandler = function () {
     }, {
         key: 'onViewDidUpdate',
         value: function onViewDidUpdate(renderedPages, targetPage) {
+            var _this = this;
+
             // return early if there are no rendered pages in view.
             if (renderedPages.length === 0) return;
 
+            // calculate the visible pages from the rendered pages
+            var temp = this._viewerCore.viewerState.viewport.intersectionTolerance;
+            // without setting to 0, isPageVisible returns true for pages out of viewport by intersectionTolerance
+            this._viewerCore.viewerState.viewport.intersectionTolerance = 0;
+            var visiblePages = renderedPages.filter(function (index) {
+                return _this._viewerCore.viewerState.renderer.isPageVisible(index);
+            });
+            // reset back to original value after getting true visible pages
+            this._viewerCore.viewerState.viewport.intersectionTolerance = temp;
+
             if (targetPage !== null) {
-                this._viewerCore.setCurrentPage(targetPage);
+                this._viewerCore.setCurrentPages(targetPage, visiblePages);
                 return;
             }
 
@@ -6392,14 +6452,14 @@ var GridHandler = function () {
                 chosenGroup = getCentermostGroup(groups, viewport);
             }
 
-            var currentPage = this._viewerCore.getSettings().currentPageIndex;
+            var currentPage = this._viewerCore.getSettings().activePageIndex;
 
             var hasCurrentPage = chosenGroup.pages.some(function (page) {
                 return page.index === currentPage;
             });
 
             if (!hasCurrentPage) {
-                this._viewerCore.setCurrentPage(chosenGroup.pages[0].index);
+                this._viewerCore.setCurrentPages(chosenGroup.pages[0].index, visiblePages);
             }
         }
     }, {
@@ -6676,6 +6736,7 @@ var ImageManifest = function () {
         this.maxRatio = data.dims.max_ratio;
         this.minRatio = data.dims.min_ratio;
         this.itemTitle = data.item_title;
+        this.metadata = data.metadata;
 
         // Only given for IIIF manifests
         this.paged = !!data.paged;
@@ -6845,7 +6906,6 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var debug = __webpack_require__(/*! debug */ "./node_modules/debug/src/browser.js")('diva:ImageRequestHandler');
 /**
  * Handler for the request for an image tile
  *
@@ -6853,7 +6913,6 @@ var debug = __webpack_require__(/*! debug */ "./node_modules/debug/src/browser.j
  * @param callback
  * @constructor
  */
-
 var ImageRequestHandler = function () {
     function ImageRequestHandler(options) {
         var _this = this;
@@ -6874,16 +6933,12 @@ var ImageRequestHandler = function () {
             _this._image.onload = _this._handleLoad.bind(_this);
             _this._image.onerror = _this._handleError.bind(_this);
             _this._image.src = options.url;
-
-            debug('Requesting image %s', options.url);
         }, this.timeoutTime);
     }
 
     _createClass(ImageRequestHandler, [{
         key: 'abort',
         value: function abort() {
-            debug('Aborting request to %s', this._url);
-
             clearTimeout(this.timeout);
 
             // FIXME
@@ -6918,13 +6973,11 @@ var ImageRequestHandler = function () {
 
             this._complete = true;
 
-            debug('Received image %s', this._url);
             this._callback(this._image);
         }
     }, {
         key: '_handleError',
         value: function _handleError() {
-            debug('Failed to load image %s', this._url);
             this._errorCallback(this._image);
         }
     }]);
@@ -7049,6 +7102,12 @@ function interpolate(start, end, easing) {
 function linearEasing(e) {
     return e;
 }
+
+/* jshint ignore:start */
+function inOutQuadEasing(e) {
+    return e < .5 ? 2 * e * e : -1 + (4 - 2 * e) * e;
+}
+/* jshint ignore:end */
 
 function inOutCubicEasing(t) {
     return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
@@ -7593,8 +7652,7 @@ var PageToolsOverlay = function () {
 
         this._innerElement = this._viewerCore.getSettings().innerElement;
         this._pageToolsElem = null;
-        //
-        // this._buttons = null;
+        this.labelWidth = 0;
     }
 
     _createClass(PageToolsOverlay, [{
@@ -7604,10 +7662,13 @@ var PageToolsOverlay = function () {
                 this._buttons = this._initializePageToolButtons();
 
                 this._pageToolsElem = (0, _elt.elt)('div', { class: 'diva-page-tools-wrapper' }, (0, _elt.elt)('div', { class: 'diva-page-tools' }, this._buttons));
+
+                this._pageLabelsElem = (0, _elt.elt)('div', { class: 'diva-page-labels-wrapper' }, (0, _elt.elt)('div', { class: 'diva-page-labels' }, this._viewerCore.settings.manifest.pages[this.page].l));
             }
 
             this.refresh();
             this._innerElement.appendChild(this._pageToolsElem);
+            this._innerElement.appendChild(this._pageLabelsElem);
         }
     }, {
         key: '_initializePageToolButtons',
@@ -7643,17 +7704,24 @@ var PageToolsOverlay = function () {
         key: 'unmount',
         value: function unmount() {
             this._innerElement.removeChild(this._pageToolsElem);
+            this._innerElement.removeChild(this._pageLabelsElem);
         }
     }, {
         key: 'refresh',
         value: function refresh() {
             var pos = this._viewerCore.getPageRegion(this.page, {
-                excludePadding: true,
+                includePadding: true,
                 incorporateViewport: true
             });
 
+            // if window is resized larger, a margin is created - need to subtract this from offsets
+            var marginLeft = window.getComputedStyle(this._innerElement, null).getPropertyValue('margin-left');
+
             this._pageToolsElem.style.top = pos.top + 'px';
-            this._pageToolsElem.style.left = pos.left + 'px';
+            this._pageToolsElem.style.left = pos.left - parseInt(marginLeft) + 'px';
+
+            this._pageLabelsElem.style.top = pos.top + 'px';
+            this._pageLabelsElem.style.left = pos.right - parseInt(marginLeft) - this.labelWidth - 5 + 'px';
         }
     }]);
 
@@ -7678,8 +7746,16 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 exports.default = parseIIIFManifest;
+
+var _parseLabelValue = __webpack_require__(/*! ./utils/parse-label-value */ "./source/js/utils/parse-label-value.js");
+
+var _parseLabelValue2 = _interopRequireDefault(_parseLabelValue);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
 var getMaxZoomLevel = function getMaxZoomLevel(width, height) {
     var largestDimension = Math.max(width, height);
+    if (largestDimension < 128) return 0;
     return Math.ceil(Math.log((largestDimension + 1) / (256 + 1)) / Math.log(2));
 };
 
@@ -7711,6 +7787,10 @@ var getOtherImageData = function getOtherImageData(otherImages, lowestMaxZoom) {
     });
 };
 
+var getIIIFPresentationVersion = function getIIIFPresentationVersion(context) {
+    if (context === "http://iiif.io/api/presentation/2/context.json") return 2;else if (Array.isArray(context) && context.includes("http://iiif.io/api/presentation/2/context.json")) return 2;else if (Array.isArray(context) && context.includes("http://iiif.io/api/presentation/3/context.json")) return 3;else return 2; // Assume a v2 manifest.
+};
+
 /**
  * Parses an IIIF Presentation API Manifest and converts it into a Diva.js-format object
  * (See https://github.com/DDMAL/diva.js/wiki/Development-notes#data-received-through-ajax-request)
@@ -7719,8 +7799,16 @@ var getOtherImageData = function getOtherImageData(otherImages, lowestMaxZoom) {
  * @returns {Object} divaServiceBlock - the data needed by Diva to show a view of a single document
  */
 function parseIIIFManifest(manifest) {
-    var sequence = manifest.sequences[0];
-    var canvases = sequence.canvases;
+    var ctx = manifest["@context"];
+
+    if (!ctx) {
+        console.error("Invalid IIIF Manifest; No @context found.");
+        return null;
+    }
+
+    var version = getIIIFPresentationVersion(ctx);
+    var sequence = manifest.sequences ? manifest.sequences[0] : null;
+    var canvases = sequence ? sequence.canvases : manifest.items;
     var numCanvases = canvases.length;
 
     var pages = new Array(canvases.length);
@@ -7728,7 +7816,8 @@ function parseIIIFManifest(manifest) {
     var thisCanvas = void 0,
         thisResource = void 0,
         thisImage = void 0,
-        otherImages = void 0,
+        secondaryImages = void 0,
+        otherImages = [],
         context = void 0,
         url = void 0,
         info = void 0,
@@ -7771,17 +7860,19 @@ function parseIIIFManifest(manifest) {
 
     for (var i = 0; i < numCanvases; i++) {
         thisCanvas = canvases[i];
-        canvas = thisCanvas['@id'];
+        canvas = thisCanvas['@id'] || thisCanvas.id;
         label = thisCanvas.label;
-        thisResource = thisCanvas.images[0].resource;
+        thisResource = thisCanvas.images ? thisCanvas.images[0].resource : thisCanvas.items[0].items[0].body;
 
         /*
          * If a canvas has multiple images it will be encoded
-         * with a resource type of "oa:Choice". The primary image will be available
-         * on the 'default' key, with other images available under 'item.'
-         * */
-        if (thisResource['@type'] === "oa:Choice") {
-            thisImage = thisResource.default;
+         * with a resource type of "oa:Choice" (v2) or "Choice" (v3).
+         **/
+        otherImages = []; // reset array
+        if (thisResource['@type'] === "oa:Choice" || thisResource.type === "Choice") {
+            thisImage = thisResource.default || thisResource.items[0];
+            secondaryImages = thisResource.item || thisResource.items.slice(1);
+            otherImages = getOtherImageData(secondaryImages, lowestMaxZoom);
         } else {
             thisImage = thisResource;
         }
@@ -7789,6 +7880,7 @@ function parseIIIFManifest(manifest) {
         // Prioritize the canvas height / width first, since images may not have h/w
         width = thisCanvas.width || thisImage.width;
         height = thisCanvas.height || thisImage.height;
+
         if (width <= 0 || height <= 0) {
             console.warn('Invalid width or height for canvas ' + label + '. Skipping');
             continue;
@@ -7796,20 +7888,14 @@ function parseIIIFManifest(manifest) {
 
         maxZoom = getMaxZoomLevel(width, height);
 
-        if (thisResource.item) {
-            otherImages = getOtherImageData(thisResource.item, lowestMaxZoom);
-        } else {
-            otherImages = [];
-        }
-
         imageLabel = thisImage.label || null;
 
         info = parseImageInfo(thisImage);
         url = info.url.slice(-1) !== '/' ? info.url + '/' : info.url; // append trailing slash to url if it's not there.
 
-        context = thisImage.service['@context'];
+        context = thisImage.service['@context'] || thisImage.service.type;
 
-        if (context === 'http://iiif.io/api/image/2/context.json') {
+        if (context === 'http://iiif.io/api/image/2/context.json' || context === "ImageService2") {
             imageAPIVersion = 2;
         } else if (context === 'http://library.stanford.edu/iiif/image-api/1.1/context.json') {
             imageAPIVersion = 1.1;
@@ -7833,6 +7919,9 @@ function parseIIIFManifest(manifest) {
             maxHeights[k] = Math.max(heightAtCurrentZoomLevel, maxHeights[k]);
         }
 
+        var isPaged = thisCanvas.viewingHint !== 'non-paged' || (thisCanvas.behavior ? thisCanvas.behavior[0] !== 'non-paged' : false);
+        var isFacing = thisCanvas.viewingHint === 'facing-pages' || (thisCanvas.behavior ? thisCanvas.behavior[0] === 'facing-pages' : false);
+
         pages[i] = {
             d: zoomDimensions,
             m: maxZoom,
@@ -7841,8 +7930,8 @@ function parseIIIFManifest(manifest) {
             f: info.url,
             url: url,
             api: imageAPIVersion,
-            paged: thisCanvas.viewingHint !== 'non-paged',
-            facingPages: thisCanvas.viewingHint === 'facing-pages',
+            paged: isPaged,
+            facingPages: isFacing,
             canvas: canvas,
             otherImages: otherImages,
             xoffset: info.x || null,
@@ -7869,12 +7958,15 @@ function parseIIIFManifest(manifest) {
         t_wid: totalWidths
     };
 
+    // assumes paged is false for non-paged values
     return {
-        item_title: manifest.label,
+        version: version,
+        item_title: (0, _parseLabelValue2.default)(manifest).label,
+        metadata: manifest.metadata || null,
         dims: dims,
         max_zoom: lowestMaxZoom,
         pgs: pages,
-        paged: manifest.viewingHint === 'paged' || sequence.viewingHint === 'paged'
+        paged: manifest.viewingHint === 'paged' || (manifest.behaviour ? manifest.behaviour[0] === 'paged' : false) || (sequence ? sequence.viewingHint === 'paged' : false)
     };
 }
 
@@ -7887,7 +7979,7 @@ function parseIIIFManifest(manifest) {
  * @returns {Object} imageInfo - an object containing image URL and region
  */
 function parseImageInfo(resource) {
-    var url = resource['@id'];
+    var url = resource['@id'] || resource.id;
     var fragmentRegex = /#xywh=([0-9]+,[0-9]+,[0-9]+,[0-9]+)/;
     var xywh = '';
     var stripURL = true;
@@ -7901,10 +7993,9 @@ function parseImageInfo(resource) {
         // matches coordinates of the style http://www.example.org/iiif/book1/canvas/p1#xywh=50,50,320,240
         var result = fragmentRegex.exec(url);
         xywh = result[1];
-    } else if (resource.service && resource.service['@id']) {
-        // assume canvas size based on image size
-        url = resource.service['@id'];
+    } else if (resource.service && (resource.service['@id'] || resource.service.id)) {
         // this URL excludes region parameters so we don't need to remove them
+        url = resource.service['@id'] || resource.service.id;
         stripURL = false;
     }
 
@@ -7973,9 +8064,6 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var debug = __webpack_require__(/*! debug */ "./node_modules/debug/src/browser.js")('diva:Renderer');
-var debugPaints = __webpack_require__(/*! debug */ "./node_modules/debug/src/browser.js")('diva:Renderer:paints');
-
 var REQUEST_DEBOUNCE_INTERVAL = 250;
 
 var Renderer = function () {
@@ -7985,6 +8073,7 @@ var Renderer = function () {
         this._viewport = options.viewport;
         this._outerElement = options.outerElement;
         this._documentElement = options.innerElement;
+        this._settings = options.settings;
 
         this._hooks = hooks || {};
 
@@ -8027,12 +8116,8 @@ var Renderer = function () {
             }
 
             if (this._canvas.width !== this._viewport.width || this._canvas.height !== this._viewport.height) {
-                debug('Canvas dimension change: (%s, %s) -> (%s, %s)', this._canvas.width, this._canvas.height, this._viewport.width, this._viewport.height);
-
                 this._canvas.width = this._viewport.width;
                 this._canvas.height = this._viewport.height;
-            } else {
-                debug('Reload, no size change');
             }
 
             // FIXME: What hooks should be called here?
@@ -8140,24 +8225,20 @@ var Renderer = function () {
     }, {
         key: '_paint',
         value: function _paint() {
-            var _this3 = this;
-
-            debug('Repainting');
+            var _this2 = this;
 
             var renderedTiles = [];
 
             this._renderedPages.forEach(function (pageIndex) {
-                var _this2 = this;
-
-                this._compositeImages[pageIndex].getTiles(this._zoomLevel).forEach(function (source) {
+                _this2._compositeImages[pageIndex].getTiles(_this2._zoomLevel).forEach(function (source) {
                     var scaled = getScaledTileRecord(source, _this2._zoomLevel);
 
                     if (_this2._isTileVisible(pageIndex, scaled)) {
                         renderedTiles.push(source.url);
                         _this2._drawTile(pageIndex, scaled, _this2._cache.get(source.url));
                     }
-                }, this);
-            }, this);
+                });
+            });
 
             var cache = this._cache;
 
@@ -8175,7 +8256,7 @@ var Renderer = function () {
                 // FIXME: Should only need to update the composite images
                 // for which tiles were removed
                 this._renderedPages.forEach(function (pageIndex) {
-                    _this3._compositeImages[pageIndex].updateFromCache(_this3._cache);
+                    _this2._compositeImages[pageIndex].updateFromCache(_this2._cache);
                 }, this);
             }
 
@@ -8187,16 +8268,18 @@ var Renderer = function () {
     }, {
         key: '_paintOutline',
         value: function _paintOutline(pages) {
+            var _this3 = this;
+
             pages.forEach(function (pageIndex) {
-                var pageInfo = this.layout.getPageInfo(pageIndex);
-                var pageOffset = this._getImageOffset(pageIndex);
+                var pageInfo = _this3.layout.getPageInfo(pageIndex);
+                var pageOffset = _this3._getImageOffset(pageIndex);
 
                 // Ensure the document is drawn to the center of the viewport
-                var viewportPaddingX = Math.max(0, (this._viewport.width - this.layout.dimensions.width) / 2);
-                var viewportPaddingY = Math.max(0, (this._viewport.height - this.layout.dimensions.height) / 2);
+                var viewportPaddingX = Math.max(0, (_this3._viewport.width - _this3.layout.dimensions.width) / 2);
+                var viewportPaddingY = Math.max(0, (_this3._viewport.height - _this3.layout.dimensions.height) / 2);
 
-                var viewportOffsetX = pageOffset.left - this._viewport.left + viewportPaddingX;
-                var viewportOffsetY = pageOffset.top - this._viewport.top + viewportPaddingY;
+                var viewportOffsetX = pageOffset.left - _this3._viewport.left + viewportPaddingX;
+                var viewportOffsetY = pageOffset.top - _this3._viewport.top + viewportPaddingY;
 
                 var destXOffset = viewportOffsetX < 0 ? -viewportOffsetX : 0;
                 var destYOffset = viewportOffsetY < 0 ? -viewportOffsetY : 0;
@@ -8207,10 +8290,10 @@ var Renderer = function () {
                 var destWidth = pageInfo.dimensions.width - destXOffset;
                 var destHeight = pageInfo.dimensions.height - destYOffset;
 
-                this._ctx.strokeStyle = '#AAA';
+                _this3._ctx.strokeStyle = '#AAA';
                 // In order to get a 1px wide line using strokes, we need to start at a 'half pixel'
-                this._ctx.strokeRect(canvasX + 0.5, canvasY + 0.5, destWidth, destHeight);
-            }, this);
+                _this3._ctx.strokeRect(canvasX + 0.5, canvasY + 0.5, destWidth, destHeight);
+            });
         }
 
         // This method should be sent all visible pages at once because it will initiate
@@ -8245,9 +8328,9 @@ var Renderer = function () {
 
                             if (_this4._isTileForSourceVisible(pageIndex, source)) {
                                 _this4._paint();
-                            } else {
-                                debugPaints('Page %s, tile %s no longer visible on image load', pageIndex, source.url);
                             }
+                        } else {
+                            if (_this4._isTileForSourceVisible(pageIndex, source)) _this4._paint();
                         }
                     },
                     error: function error() {
@@ -8300,23 +8383,22 @@ var Renderer = function () {
             var destXOffset = viewportOffsetX < 0 ? -viewportOffsetX : 0;
             var destYOffset = viewportOffsetY < 0 ? -viewportOffsetY : 0;
 
-            var sourceXOffset = destXOffset / scaledTile.scaleRatio;
-            var sourceYOffset = destYOffset / scaledTile.scaleRatio;
-
             var canvasX = Math.max(0, viewportOffsetX);
             var canvasY = Math.max(0, viewportOffsetY);
 
+            var sourceXOffset = destXOffset / scaledTile.scaleRatio;
+            var sourceYOffset = destYOffset / scaledTile.scaleRatio;
+
             // Ensure that the specified dimensions are no greater than the actual
             // size of the image. Safari won't display the tile if they are.
-            var destWidth = Math.min(scaledTile.dimensions.width, img.width * scaledTile.scaleRatio) - destXOffset;
-            var destHeight = Math.min(scaledTile.dimensions.height, img.height * scaledTile.scaleRatio) - destYOffset;
+            var destImgWidth = Math.min(scaledTile.dimensions.width, img.width * scaledTile.scaleRatio) - destXOffset;
+            var destImgHeight = Math.min(scaledTile.dimensions.height, img.height * scaledTile.scaleRatio) - destYOffset;
+
+            var destWidth = Math.max(1, Math.round(destImgWidth));
+            var destHeight = Math.max(1, Math.round(destImgHeight));
 
             var sourceWidth = destWidth / scaledTile.scaleRatio;
             var sourceHeight = destHeight / scaledTile.scaleRatio;
-
-            if (debugPaints.enabled) {
-                debugPaints('Drawing page %s, tile %sx (%s, %s) from %s, %s to viewport at %s, %s, scale %s%%', pageIndex, scaledTile.sourceZoomLevel, scaledTile.row, scaledTile.col, sourceXOffset, sourceYOffset, canvasX, canvasY, Math.round(scaledTile.scaleRatio * 100));
-            }
 
             this._ctx.drawImage(img, sourceXOffset, sourceYOffset, sourceWidth, sourceHeight, canvasX, canvasY, destWidth, destHeight);
         }
@@ -8351,7 +8433,7 @@ var Renderer = function () {
     }, {
         key: '_getImageOffset',
         value: function _getImageOffset(pageIndex) {
-            return this.layout.getPageOffset(pageIndex, { excludePadding: true });
+            return this.layout.getPageOffset(pageIndex, { includePadding: true });
         }
 
         // TODO: Update signature
@@ -8361,6 +8443,7 @@ var Renderer = function () {
         value: function goto(pageIndex, verticalOffset, horizontalOffset) {
             this._clearAnimation();
             this._goto(pageIndex, verticalOffset, horizontalOffset);
+
             if (this._hooks.onViewDidUpdate) {
                 this._hooks.onViewDidUpdate(this._renderedPages.slice(), pageIndex);
             }
@@ -8372,10 +8455,10 @@ var Renderer = function () {
             var pageOffset = this.layout.getPageOffset(pageIndex);
 
             var desiredVerticalCenter = pageOffset.top + verticalOffset;
-            var top = desiredVerticalCenter - parseInt(this._viewport.height / 2, 10);
+            var top = desiredVerticalCenter - Math.round(this._viewport.height / 2);
 
             var desiredHorizontalCenter = pageOffset.left + horizontalOffset;
-            var left = desiredHorizontalCenter - parseInt(this._viewport.width / 2, 10);
+            var left = desiredHorizontalCenter - Math.round(this._viewport.width / 2);
 
             this._viewport.top = top;
             this._viewport.left = left;
@@ -8396,7 +8479,6 @@ var Renderer = function () {
                 duration: options.duration,
                 parameters: options.parameters,
                 onUpdate: function onUpdate(values) {
-                    // TODO: Do image preloading, work with that
                     _this5._setViewportPosition(getPosition(values));
                     _this5._hooks.onZoomLevelWillChange(values.zoomLevel);
 
@@ -8422,11 +8504,6 @@ var Renderer = function () {
                 this._animation.cancel();
                 this._animation = null;
             }
-        }
-    }, {
-        key: 'preload',
-        value: function preload() {
-            // TODO
         }
     }, {
         key: 'isPageVisible',
@@ -8616,11 +8693,6 @@ var TileCoverageMap = function () {
         value: function set(row, col, value) {
             this._map[row][col] = value;
         }
-    }, {
-        key: "get",
-        value: function get() {
-            console.log("JSHint: Requires a getter when setter is set, otherwise lint tests will fail.");
-        }
     }]);
 
     return TileCoverageMap;
@@ -8751,9 +8823,175 @@ var Toolbar = function () {
             return (0, _elt.elt)('div', { id: this.settings.ID + "grid-controls", style: "display:none" }, gridButtons);
         }
     }, {
+        key: 'createPageLabel',
+        value: function createPageLabel() {
+            var _this3 = this;
+
+            // Current page
+            var currentPage = (0, _elt.elt)('span', {
+                id: this.settings.ID + 'current-page'
+            });
+
+            var updateCurrentPage = function updateCurrentPage() {
+                // get labels for index range
+                var indices = _this3.viewer.getCurrentPageIndices();
+                var startIndex = indices[0];
+                var endIndex = indices[indices.length - 1];
+                var startLabel = _this3.settings.manifest.pages[startIndex].l;
+                var endLabel = _this3.settings.manifest.pages[endIndex].l;
+
+                if (startIndex !== endIndex) {
+                    if (_this3.settings.enableIndexAsLabel) currentPage.textContent = startIndex + " - " + endIndex;else currentPage.textContent = startLabel + " - " + endLabel;
+                } else {
+                    if (_this3.settings.enableIndexAsLabel) currentPage.textContent = startIndex;else currentPage.textContent = startLabel;
+                }
+            };
+
+            this._subscribe('VisiblePageDidChange', updateCurrentPage);
+            this._subscribe('ViewerDidLoad', updateCurrentPage);
+            this._subscribe('ViewDidSwitch', updateCurrentPage);
+
+            return (0, _elt.elt)('span', {
+                class: 'diva-page-label diva-label'
+            }, currentPage);
+        }
+    }, {
+        key: 'createGotoPageForm',
+        value: function createGotoPageForm() {
+            var _this4 = this;
+
+            var gotoPageInput = (0, _elt.elt)('input', {
+                id: this.settings.ID + 'goto-page-input',
+                class: 'diva-input diva-goto-page-input',
+                autocomplete: 'off',
+                type: 'text'
+            });
+
+            var gotoPageSubmit = (0, _elt.elt)('input', {
+                id: this.settings.ID + 'goto-page-submit',
+                class: 'diva-button diva-button-text',
+                type: 'submit',
+                value: 'Go'
+            });
+
+            var inputSuggestions = (0, _elt.elt)('div', {
+                id: this.settings.ID + 'input-suggestions',
+                class: 'diva-input-suggestions'
+            });
+
+            var gotoForm = (0, _elt.elt)('form', {
+                id: this.settings.ID + 'goto-page',
+                class: 'diva-goto-form'
+            }, gotoPageInput, gotoPageSubmit, inputSuggestions);
+
+            gotoForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                var desiredPageLabel = gotoPageInput.value;
+
+                if (_this4.settings.onGotoSubmit && typeof _this4.settings.onGotoSubmit === "function") {
+                    var pageIndex = _this4.settings.onGotoSubmit(desiredPageLabel);
+                    if (!_this4.viewer.gotoPageByIndex(pageIndex)) window.alert("No page could be found with that label or page number");
+                } else // Default if no function is specified in the settings
+                    {
+                        if (!_this4.viewer.gotoPageByLabel(desiredPageLabel)) window.alert("No page could be found with that label or page number");
+                    }
+
+                // Hide the suggestions
+                inputSuggestions.style.display = 'none';
+
+                // Prevent the default action of reloading the page
+                return false;
+            });
+
+            ['input', 'focus'].forEach(function (event) {
+                gotoPageInput.addEventListener(event, function () {
+                    inputSuggestions.innerHTML = ''; // Remove all previous suggestions
+
+                    var value = gotoPageInput.value;
+                    var numSuggestions = 0;
+                    if (_this4.settings.enableGotoSuggestions && value) {
+                        var pages = _this4.settings.manifest.pages;
+                        for (var i = 0, len = pages.length; i < len && numSuggestions < 10; i++) {
+                            if (pages[i].l.toLowerCase().indexOf(value.toLowerCase()) > -1) {
+                                var newInputSuggestion = (0, _elt.elt)('div', {
+                                    class: 'diva-input-suggestion'
+                                }, pages[i].l);
+
+                                inputSuggestions.appendChild(newInputSuggestion);
+
+                                numSuggestions++;
+                            }
+                        }
+
+                        // Show label suggestions
+                        if (numSuggestions > 0) inputSuggestions.style.display = 'block';
+                    } else inputSuggestions.style.display = 'none';
+                });
+            });
+
+            gotoPageInput.addEventListener('keydown', function (e) {
+                var el = void 0;
+                if (e.keyCode === 13) // 'Enter' key
+                    {
+                        var active = document.getElementsByClassName('active')[0];
+                        if (typeof active !== 'undefined') gotoPageInput.value = active.innerText;
+                    }
+                if (e.keyCode === 38) // Up arrow key
+                    {
+                        el = document.getElementsByClassName('active')[0];
+                        var prevEl = el ? el.previousSibling : undefined;
+                        if (typeof prevEl !== 'undefined') {
+                            el.classList.remove('active');
+                            if (prevEl !== null) prevEl.classList.add('active');
+                        } else {
+                            var last = document.getElementsByClassName('diva-input-suggestion').length - 1;
+                            document.getElementsByClassName('diva-input-suggestion')[last].classList.add('active');
+                        }
+                    } else if (e.keyCode === 40) // Down arrow key
+                    {
+                        el = document.getElementsByClassName('active')[0];
+                        var nextEl = el ? el.nextSibling : undefined;
+                        if (typeof nextEl !== 'undefined') {
+                            el.classList.remove('active');
+                            if (nextEl !== null) nextEl.classList.add('active');
+                        } else {
+                            document.getElementsByClassName('diva-input-suggestion')[0].classList.add('active');
+                        }
+                    }
+            });
+
+            onEvent(inputSuggestions, 'mousedown', '.diva-input-suggestion', function () {
+                gotoPageInput.value = this.textContent;
+                inputSuggestions.style.display = 'none';
+                var submitEvent = new Event('submit', {
+                    cancelable: true
+                });
+                gotoForm.dispatchEvent(submitEvent);
+            });
+
+            // javascript equivalent to jquery .on(event, selector, function)
+            function onEvent(elem, evt, sel, handler) {
+                elem.addEventListener(evt, function (event) {
+                    var t = event.target;
+                    while (t && t !== this) {
+                        if (t.matches(sel)) handler.call(t, event);
+                        t = t.parentNode;
+                    }
+                });
+            }
+
+            gotoPageInput.addEventListener('blur', function () {
+                // Hide label suggestions
+                inputSuggestions.style.display = 'none';
+            });
+
+            return gotoForm;
+        }
+    }, {
         key: 'createViewMenu',
         value: function createViewMenu() {
-            var _this3 = this;
+            var _this5 = this;
 
             var viewOptionsList = (0, _elt.elt)('div', this._elemAttrs('view-options'));
             var gridViewIcon = this._createGridViewIcon();
@@ -8767,7 +9005,7 @@ var Toolbar = function () {
             var changeViewButton = this.createButton('view-icon', 'Change view', viewOptionsToggle);
 
             var selectView = function selectView(view) {
-                _this3.viewer.changeView(view);
+                _this5.viewer.changeView(view);
 
                 //hide view menu
                 viewOptionsList.style.display = "none";
@@ -8777,10 +9015,10 @@ var Toolbar = function () {
                 var viewIconClasses = ' diva-view-icon diva-button';
 
                 // display the icon of the mode we're currently in (?)
-                if (_this3.settings.inGrid) {
+                if (_this5.settings.inGrid) {
                     changeViewButton.appendChild(gridViewIcon);
                     changeViewButton.className = 'diva-grid-icon' + viewIconClasses;
-                } else if (_this3.settings.inBookLayout) {
+                } else if (_this5.settings.inBookLayout) {
                     changeViewButton.appendChild(bookViewIcon);
                     changeViewButton.className = 'diva-book-icon' + viewIconClasses;
                 } else {
@@ -8791,11 +9029,11 @@ var Toolbar = function () {
                 var viewOptions = document.createDocumentFragment();
 
                 // then display document, book, and grid buttons in that order, excluding the current view
-                if (_this3.settings.inGrid || _this3.settings.inBookLayout) viewOptions.appendChild(_this3.createButton('document-icon', 'Document View', selectView.bind(null, 'document'), pageViewIcon));
+                if (_this5.settings.inGrid || _this5.settings.inBookLayout) viewOptions.appendChild(_this5.createButton('document-icon', 'Document View', selectView.bind(null, 'document'), pageViewIcon));
 
-                if (_this3.settings.inGrid || !_this3.settings.inBookLayout) viewOptions.appendChild(_this3.createButton('book-icon', 'Book View', selectView.bind(null, 'book'), bookViewIcon));
+                if (_this5.settings.inGrid || !_this5.settings.inBookLayout) viewOptions.appendChild(_this5.createButton('book-icon', 'Book View', selectView.bind(null, 'book'), bookViewIcon));
 
-                if (!_this3.settings.inGrid) viewOptions.appendChild(_this3.createButton('grid-icon', 'Grid View', selectView.bind(null, 'grid'), gridViewIcon));
+                if (!_this5.settings.inGrid) viewOptions.appendChild(_this5.createButton('grid-icon', 'Grid View', selectView.bind(null, 'grid'), gridViewIcon));
 
                 // remove old menu
                 while (viewOptionsList.firstChild) {
@@ -8820,12 +9058,12 @@ var Toolbar = function () {
     }, {
         key: 'createFullscreenButton',
         value: function createFullscreenButton() {
-            var _this4 = this;
+            var _this6 = this;
 
             var fullscreenIcon = this._createFullscreenIcon();
 
             return this.createButton('fullscreen-icon', 'Toggle fullscreen mode', function () {
-                _this4.viewer.toggleFullscreenMode();
+                _this6.viewer.toggleFullscreenMode();
             }, fullscreenIcon);
         }
     }, {
@@ -8846,7 +9084,31 @@ var Toolbar = function () {
             this._subscribe("ObjectDidLoad", this.toggleZoomGridControls);
 
             var leftTools = [this.createZoomButtons(), this.createGridControls()];
-            var rightTools = [this.createViewMenu(), this.createFullscreenButton()];
+            var rightTools = [this.createPageLabel(), this.createViewMenu()];
+            if (this.settings.enableFullscreen) rightTools.push(this.createFullscreenButton());
+            if (this.settings.enableGotoPage) rightTools.splice(1, 0, this.createGotoPageForm());
+
+            // assign toolbar plugins to proper side
+            var plugins = this.viewer.viewerState.pluginInstances;
+            for (var i = 0, len = plugins.length; i < len; i++) {
+                var plugin = plugins[i];
+
+                if (!plugin.toolbarSide) // not a toolbar tool
+                    continue;
+
+                plugin.toolbarIcon = plugin.createIcon();
+                if (!plugin.toolbarIcon) // icon couldn't be created
+                    continue;
+
+                // add plugin tools after the go-to-page and page-label tools
+                if (plugin.toolbarSide === 'right') rightTools.splice(2, 0, plugin.toolbarIcon);else if (plugin.toolbarSide === 'left') leftTools.splice(2, 0, plugin.toolbarIcon);
+
+                plugin.toolbarIcon.addEventListener('click', handlePluginClick.bind(this, plugin));
+            }
+
+            function handlePluginClick(plugin) {
+                plugin.handleClick(this.viewer);
+            }
 
             var tools = (0, _elt.elt)('div', this._elemAttrs('tools'), (0, _elt.elt)('div', this._elemAttrs('tools-left'), leftTools), (0, _elt.elt)('div', this._elemAttrs('tools-right'), rightTools));
 
@@ -8928,648 +9190,6 @@ var Toolbar = function () {
 
     return Toolbar;
 }();
-
-// export default function createToolbar (viewer)
-// {
-//     const settings = viewer.getSettings();
-//
-//     // FIXME(wabain): Temporarily copied from within Diva
-//     const elemAttrs = (ident, base) => {
-//         const attrs = {
-//             id: settings.ID + ident,
-//             class: 'diva-' + ident
-//         };
-//
-//         if (base)
-//             return Object.assign(attrs, base);
-//         else
-//             return attrs;
-//     };
-//
-//     /** Convenience function to subscribe to a Diva event */
-//     const subscribe = (event, callback) => {
-//         diva.Events.subscribe(event, callback, settings.ID);
-//     };
-//
-//     // Creates a toolbar button
-//     const createButtonElement = (name, label, callback) => {
-//         const button = elt('button', {
-//             type: 'button',
-//             id: settings.ID + name,
-//             class: 'diva-' + name + ' diva-button',
-//             title: label
-//         });
-//
-//         if (callback)
-//             button.addEventListener('click', callback, false);
-//
-//         return button;
-//     };
-//
-//     // Higher-level function for creators of zoom and grid controls
-//     const getResolutionControlCreator = config => () => {
-//         let controls;
-//
-//         switch (settings[config.controllerSetting])
-//         {
-//             case 'slider':
-//                 controls = config.createSlider();
-//                 break;
-//
-//             case 'buttons':
-//                 controls = config.createButtons();
-//                 break;
-//
-//             default:
-//                 // Don't display anything
-//                 return null;
-//         }
-//
-//         const wrapper = elt('span',
-//             controls,
-//             config.createLabel()
-//         );
-//
-//         const updateWrapper = () => {
-//             if (settings.inGrid === config.showInGrid)
-//                 wrapper.style.display = 'inline';
-//             else
-//                 wrapper.style.display = 'none';
-//         };
-//
-//         subscribe('ViewDidSwitch', updateWrapper);
-//         subscribe('ObjectDidLoad', updateWrapper);
-//
-//         // Set initial value
-//         updateWrapper();
-//
-//         return wrapper;
-//     };
-//
-//     // Zoom controls
-//     const createZoomControls = getResolutionControlCreator({
-//         controllerSetting: 'enableZoomControls',
-//         showInGrid: false,
-//
-//         createSlider: function ()
-//         {
-//             const elem = createSlider('zoom-slider', {
-//                 step: 0.1,
-//                 value: settings.zoomLevel,
-//                 min: settings.minZoomLevel,
-//                 max: settings.maxZoomLevel
-//             });
-//
-//             elem.addEventListener('input', () =>
-//             {
-//                 const floatValue = parseFloat(this.value);
-//                 viewer.setZoomLevel(floatValue);
-//             });
-//
-//             elem.addEventListener('change', () =>
-//             {
-//                 const floatValue = parseFloat(this.value);
-//                 if (floatValue !== settings.zoomLevel)
-//                     viewer.setZoomLevel(floatValue);
-//             });
-//
-//             const updateSlider = () => {
-//                 if (settings.zoomLevel !== $elem.val())
-//                     $elem.val(settings.zoomLevel);
-//             };
-//
-//             subscribe('ZoomLevelDidChange', updateSlider);
-//             subscribe('ViewerDidLoad', () => {
-//                 elt.setAttributes(elem, {
-//                     min: settings.minZoomLevel,
-//                     max: settings.maxZoomLevel
-//                 });
-//
-//                 updateSlider();
-//             });
-//
-//             return elem;
-//         },
-//
-//         createButtons: function ()
-//         {
-//             return elt('span',
-//                 createButtonElement('zoom-out-button', 'Zoom Out', () => {
-//                     viewer.setZoomLevel(settings.zoomLevel - 1);
-//                 }),
-//                 createButtonElement('zoom-in-button', 'Zoom In', () => {
-//                     viewer.setZoomLevel(settings.zoomLevel + 1);
-//                 })
-//             );
-//         },
-//
-//         createLabel: function ()
-//         {
-//             const elem = createLabel('diva-zoom-label', 'zoom-label', 'Zoom level: ', 'zoom-level', settings.zoomLevel);
-//             const textSpan = $(elem).find(settings.selector + 'zoom-level')[0];
-//
-//             const updateText = () => {
-//                 textSpan.textContent = settings.zoomLevel.toFixed(2);
-//             };
-//
-//             subscribe('ZoomLevelDidChange', updateText);
-//             subscribe('ViewerDidLoad', updateText);
-//
-//             return elem;
-//         }
-//     });
-//
-//     // Grid controls
-//     const createGridControls = getResolutionControlCreator({
-//         controllerSetting: 'enableGridControls',
-//         showInGrid: true,
-//
-//         createSlider: function ()
-//         {
-//             const elem = createSlider('grid-slider', {
-//                 value: settings.pagesPerRow,
-//                 min: settings.minPagesPerRow,
-//                 max: settings.maxPagesPerRow
-//             });
-//
-//             elem.addEventListener('input', () => {
-//                 const intValue = parseInt(elem.value, 10);
-//                 viewer.setGridPagesPerRow(intValue);
-//             });
-//
-//             elem.addEventListener('change', () => {
-//                 const intValue = parseInt(elem.value, 10);
-//                 if (intValue !== settings.pagesPerRow)
-//                     viewer.setGridPagesPerRow(intValue);
-//             });
-//
-//             subscribe('GridRowNumberDidChange', () => {
-//                 // Update the position of the handle within the slider
-//                 if (settings.pagesPerRow !== $elem.val())
-//                     $elem.val(settings.pagesPerRow);
-//             });
-//
-//             return elem;
-//         },
-//
-//         createButtons: function ()
-//         {
-//             return elt('span',
-//                 createButtonElement('grid-out-button', 'Zoom Out', () => {
-//                     viewer.setGridPagesPerRow(settings.pagesPerRow - 1);
-//                 }),
-//                 createButtonElement('grid-in-button', 'Zoom In', () => {
-//                     viewer.setGridPagesPerRow(settings.pagesPerRow + 1);
-//                 })
-//             );
-//         },
-//
-//         createLabel: function ()
-//         {
-//             const elem = createLabel('diva-grid-label', 'grid-label', 'Pages per row: ', 'pages-per-row', settings.pagesPerRow);
-//             const textSpan = $(elem).find(settings.selector + 'pages-per-row')[0];
-//
-//             subscribe('GridRowNumberDidChange', () => {
-//                 textSpan.textContent = settings.pagesPerRow;
-//             });
-//
-//             return elem;
-//         }
-//     });
-//
-//     const createViewMenu = () => {
-//         const viewOptionsList = elt('div', elemAttrs('view-options'));
-//
-//         const changeViewButton = createButtonElement('view-icon', 'Change view', () => {
-//             $(viewOptionsList).toggle();
-//         });
-//
-//         document.addEventListener('mouseup', event => {
-//             const container = $(viewOptionsList);
-//
-//             if (!container.is(event.target) && container.has(event.target).length === 0 && event.target.id !== settings.ID + 'view-icon')
-//             {
-//                 container.hide();
-//             }
-//         });
-//
-//         const selectView = view => {
-//             viewer.changeView(view);
-//
-//             //hide view menu
-//             $(viewOptionsList).hide();
-//         };
-//
-//         const updateViewMenu = () => {
-//             const viewIconClasses = ' diva-view-icon diva-button';
-//
-//             // display the icon of the mode we're currently in (?)
-//             if (settings.inGrid)
-//             {
-//                 changeViewButton.className = 'diva-grid-icon' + viewIconClasses;
-//             }
-//             else if (settings.inBookLayout)
-//             {
-//                 changeViewButton.className = 'diva-book-icon' + viewIconClasses;
-//             }
-//             else
-//             {
-//                 changeViewButton.className = 'diva-document-icon' + viewIconClasses;
-//             }
-//
-//             const viewOptions = document.createDocumentFragment();
-//
-//             // then display document, book, and grid buttons in that order, excluding the current view
-//             if (settings.inGrid || settings.inBookLayout)
-//                 viewOptions.appendChild(createButtonElement('document-icon', 'Document View', selectView.bind(null, 'document')));
-//
-//             if (settings.inGrid || !settings.inBookLayout)
-//                 viewOptions.appendChild(createButtonElement('book-icon', 'Book View', selectView.bind(null, 'book')));
-//
-//             if (!settings.inGrid)
-//                 viewOptions.appendChild(createButtonElement('grid-icon', 'Grid View', selectView.bind(null, 'grid')));
-//
-//             // remove old menu
-//             while (viewOptionsList.firstChild)
-//             {
-//                 viewOptionsList.removeChild(viewOptionsList.firstChild);
-//             }
-//
-//             // insert new menu
-//             viewOptionsList.appendChild(viewOptions);
-//         };
-//
-//         subscribe('ViewDidSwitch', updateViewMenu);
-//         subscribe('ObjectDidLoad', updateViewMenu);
-//
-//         return elt('div', elemAttrs('view-menu'),
-//             changeViewButton,
-//             viewOptionsList
-//         );
-//     };
-//
-//     const createSlider = (name, options) => elt('input', options, {
-//         id: settings.ID + name,
-//         class: 'diva-' + name + ' diva-slider',
-//         type: 'range'
-//     });
-//
-//     const createLabel = (name, id, label, innerName, innerValue) => elt('div', {
-//             id: settings.ID + id,
-//             class: name + ' diva-label'
-//         },
-//         [
-//             label,
-//             elt('span', {
-//                 id: settings.ID + innerName
-//             }, innerValue)
-//         ]);
-//
-//     const createPageNavigationControls = () => {
-//         // Go to page form
-//         const gotoForm = settings.enableGotoPage ? createGotoPageForm() : null;
-//
-//         return elt('span', elemAttrs('page-nav'),
-//             createPageLabel(), // 'Page x of y' label
-//             gotoForm
-//         );
-//     };
-//
-//     const createGotoPageForm = () => {
-//         const gotoPageInput = elt('input', {
-//             id: settings.ID + 'goto-page-input',
-//             class: 'diva-input diva-goto-page-input',
-//             autocomplete: 'off',
-//             type: 'text'
-//         });
-//
-//         const gotoPageSubmit = elt('input', {
-//             id: settings.ID + 'goto-page-submit',
-//             class: 'diva-button diva-button-text',
-//             type: 'submit',
-//             value: 'Go'
-//         });
-//
-//         const inputSuggestions = elt('div', {
-//                 id: settings.ID + 'input-suggestions',
-//                 class: 'diva-input-suggestions'
-//             }
-//         );
-//
-//         const gotoForm = elt('form', {
-//                 id: settings.ID + 'goto-page',
-//                 class: 'diva-goto-form'
-//             },
-//             gotoPageInput,
-//             gotoPageSubmit,
-//             inputSuggestions
-//         );
-//
-//         $(gotoForm).on('submit', () => {
-//             const desiredPageLabel = gotoPageInput.value;
-//
-//             if (settings.onGotoSubmit && typeof settings.onGotoSubmit === "function")
-//             {
-//                 const pageIndex = settings.onGotoSubmit(desiredPageLabel);
-//                 if (!viewer.gotoPageByIndex(pageIndex))
-//                     alert("No page could be found with that label or page number");
-//
-//             }
-//             else // Default if no function is specified in the settings
-//             {
-//                 if (!viewer.gotoPageByLabel(desiredPageLabel))
-//                     alert("No page could be found with that label or page number");
-//             }
-//
-//             // Hide the suggestions
-//             inputSuggestions.style.display = 'none';
-//
-//             // Prevent the default action of reloading the page
-//             return false;
-//         });
-//
-//         $(gotoPageInput).on('input focus', () => {
-//             inputSuggestions.innerHTML = ''; // Remove all previous suggestions
-//
-//             const value = gotoPageInput.value;
-//             let numSuggestions = 0;
-//             if (settings.enableGotoSuggestions && value)
-//             {
-//                 const pages = settings.manifest.pages;
-//                 for (let i = 0, len = pages.length; i < len && numSuggestions < 10; i++)
-//                 {
-//                     if (pages[i].l.toLowerCase().indexOf(value.toLowerCase()) > -1)
-//                     {
-//                         const newInputSuggestion = elt('div', {
-//                                 class: 'diva-input-suggestion'
-//                             },
-//                             pages[i].l
-//                         );
-//
-//                         inputSuggestions.appendChild(newInputSuggestion);
-//
-//                         numSuggestions++;
-//                     }
-//                 }
-//
-//                 // Show label suggestions
-//                 if (numSuggestions > 0)
-//                     inputSuggestions.style.display = 'block';
-//             }
-//             else
-//                 inputSuggestions.style.display = 'none';
-//         });
-//
-//         $(gotoPageInput).on('keydown', e => {
-//             let el;
-//             if (e.keyCode === 13) // 'Enter' key
-//             {
-//                 const active = $('.active', inputSuggestions);
-//                 if (active.length)
-//                     gotoPageInput.value = active.text();
-//
-//             }
-//             if (e.keyCode === 38) // Up arrow key
-//             {
-//                 el = $('.active', inputSuggestions);
-//                 const prevEl = el.prev();
-//                 if (prevEl.length)
-//                 {
-//                     el.removeClass('active');
-//                     prevEl.addClass('active');
-//                 }
-//                 else
-//                 {
-//                     el.removeClass('active');
-//                     $('.diva-input-suggestion:last', inputSuggestions).addClass('active');
-//                 }
-//             }
-//             else if (e.keyCode === 40) // Down arrow key
-//             {
-//                 el = $('.active', inputSuggestions);
-//                 const nextEl = el.next();
-//                 if (nextEl.length)
-//                 {
-//                     el.removeClass('active');
-//                     nextEl.addClass('active');
-//                 }
-//                 else
-//                 {
-//                     el.removeClass('active');
-//                     $('.diva-input-suggestion:first', inputSuggestions).addClass('active');
-//                 }
-//             }
-//         });
-//
-//         $(inputSuggestions).on('mousedown', '.diva-input-suggestion', function()
-//         {
-//             gotoPageInput.value = this.textContent;
-//             inputSuggestions.style.display = 'none';
-//             $(gotoPageInput).trigger('submit');
-//         });
-//
-//         $(gotoPageInput).on('blur', () => {
-//             // Hide label suggestions
-//             inputSuggestions.style.display = 'none';
-//         });
-//
-//         return gotoForm;
-//     };
-//
-//     const createPageLabel = () => {
-//         // Current page
-//         const currentPage = elt('span', {
-//             id: settings.ID + 'current-page'
-//         });
-//
-//         const updateCurrentPage = () => {
-//             currentPage.textContent = viewer.getCurrentAliasedPageIndex();
-//         };
-//
-//         subscribe('VisiblePageDidChange', updateCurrentPage);
-//         subscribe('ViewerDidLoad', updateCurrentPage);
-//
-//         // Number of pages
-//         const numPages = elt('span', {
-//             id: settings.ID + 'num-pages'
-//         });
-//
-//         const updateNumPages = () => {
-//             numPages.textContent = settings.numPages;
-//         };
-//
-//         subscribe('NumberOfPagesDidChange', updateNumPages);
-//         subscribe('ObjectDidLoad', updateNumPages);
-//
-//         return elt('span', {
-//                 class: 'diva-page-label diva-label'
-//             },
-//             'Page ', currentPage, ' of ', numPages
-//         );
-//     };
-//
-//     const createToolbarButtonGroup = () => {
-//         const buttons = [createViewMenu()];
-//
-//         if (settings.enableLinkIcon)
-//             buttons.push(createLinkIcon());
-//
-//         if (settings.enableNonPagedVisibilityIcon)
-//             buttons.push(createToggleNonPagedButton());
-//
-//         if (settings.enableFullscreen)
-//             buttons.push(createFullscreenButton());
-//
-//         return elt('span', elemAttrs('toolbar-button-group'), buttons);
-//     };
-//
-//     const createLinkIcon = () => {
-//         const elem = createButtonElement('link-icon', 'Link to this page');
-//         const linkIcon = $(elem);
-//
-//         linkIcon.on('click', () => {
-//             $('body').prepend(
-//                 elt('div', {
-//                     id: settings.ID + 'link-popup',
-//                     class: 'diva-popup diva-link-popup'
-//                 }, [
-//                     elt('input', {
-//                         id: settings.ID + 'link-popup-input',
-//                         class: 'diva-input',
-//                         type: 'text',
-//                         value: viewer.getCurrentURL()
-//                     })
-//                 ])
-//             );
-//
-//             if (settings.inFullscreen)
-//             {
-//                 $(settings.selector + 'link-popup').addClass('in-fullscreen');
-//             }
-//             else
-//             {
-//                 // Calculate the left and top offsets
-//                 const leftOffset = linkIcon.offset().left - 222 + linkIcon.outerWidth();
-//                 const topOffset = linkIcon.offset().top + linkIcon.outerHeight() - 1;
-//
-//                 $(settings.selector + 'link-popup').css({
-//                     'top': topOffset + 'px',
-//                     'left': leftOffset + 'px'
-//                 });
-//             }
-//
-//             // Catch onmouseup events outside of this div
-//             $('body').mouseup(event => {
-//                 const targetID = event.target.id;
-//
-//                 if (targetID !== settings.ID + 'link-popup' && targetID !== settings.ID + 'link-popup-input')
-//                     $(settings.selector + 'link-popup').remove();
-//             });
-//
-//             // Also delete it upon scroll and page up/down key events
-//             // FIXME(wabain): This is aggressive
-//             settings.viewportObject.scroll(() => {
-//                 $(settings.selector + 'link-popup').remove();
-//             });
-//             $(settings.selector + 'link-popup input').click(function ()
-//             {
-//                 $(this).focus().select();
-//             });
-//
-//             return false;
-//         });
-//
-//         return elem;
-//     };
-//
-//     var createFullscreenButton = () => createButtonElement('fullscreen-icon', 'Toggle fullscreen mode', () => {
-//         viewer.toggleFullscreenMode();
-//     });
-//
-//     var createToggleNonPagedButton = () => {
-//         const getClassName = () => 'toggle-nonpaged-icon' + (viewer.getSettings().showNonPagedPages ? '-active' : '');
-//
-//         const toggleNonPagedButton = createButtonElement(getClassName(), 'Toggle visibility of non-paged pages', function()
-//         {
-//             viewer.toggleNonPagedPagesVisibility();
-//             const newClassName = 'diva-' + getClassName();
-//             this.className = this.className.replace(/diva-toggle-nonpaged-icon(-active)?/, newClassName);
-//         });
-//
-//         const updateNonPagedButtonVisibility = () => {
-//             const pages = settings.manifest.pages;
-//             for (let i = 0; i < pages.length; i++)
-//             {
-//                 if (settings.manifest.paged && !pages[i].paged)
-//                 {
-//                     // Show the button, there is at least one non-paged page
-//                     toggleNonPagedButton.style.display = 'inline-block';
-//                     return;
-//                 }
-//             }
-//
-//             // No non-paged pages were found, hide the button
-//             toggleNonPagedButton.style.display = 'none';
-//         };
-//         subscribe('ObjectDidLoad', updateNonPagedButtonVisibility);
-//
-//         return toggleNonPagedButton;
-//     };
-//
-//     // Handles all status updating etc (both fullscreen and not)
-//     const init = () => {
-//         const leftTools = [createZoomControls(), createGridControls()];
-//         const rightTools = [createPageNavigationControls(), createToolbarButtonGroup()];
-//
-//         const tools = elt('div', elemAttrs('tools'),
-//             elt('div', elemAttrs('tools-left'), leftTools),
-//             elt('div', elemAttrs('tools-right'), rightTools)
-//         );
-//
-//         settings.toolbarParentObject.prepend(tools);
-//
-//         // Handle entry to and exit from fullscreen mode
-//         const switchMode = () => {
-//             const toolsRightElement = document.getElementById(settings.ID + 'tools-right');
-//             const pageNavElement = document.getElementById(settings.ID + 'page-nav');
-//
-//             if (!settings.inFullscreen)
-//             {
-//                 // Leaving fullscreen
-//                 $(tools).removeClass('diva-fullscreen-tools');
-//
-//                 //move ID-page-nav to beginning of tools right
-//                 toolsRightElement.removeChild(pageNavElement);
-//                 toolsRightElement.insertBefore(pageNavElement, toolsRightElement.firstChild);
-//             }
-//             else
-//             {
-//                 // Entering fullscreen
-//                 $(tools).addClass('diva-fullscreen-tools');
-//
-//                 //move ID-page-nav to end of tools right
-//                 toolsRightElement.removeChild(pageNavElement);
-//                 toolsRightElement.appendChild(pageNavElement);
-//             }
-//         };
-//
-//         subscribe('ModeDidSwitch', switchMode);
-//         subscribe('ViewerDidLoad', switchMode);
-//
-//         const toolbar = {
-//             element: tools,
-//             closePopups: function ()
-//             {
-//                 $('.diva-popup').css('display', 'none');
-//             }
-//         };
-//
-//         return toolbar;
-//     };
-//
-//     return init();
-// }
-
 
 exports.default = Toolbar;
 
@@ -9663,6 +9283,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
     }
 
     exports.reset = reset;
+    window.resetDragscroll = reset;
 });
 
 /***/ }),
@@ -10021,10 +9642,12 @@ function getScrollbarWidth() {
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
-exports.default = {
+var HashParams = {
     get: getHashParam,
     update: updateHashParam
 };
+
+exports.default = HashParams;
 
 // For getting the #key values from the URL. For specifying a page and zoom level
 // Look into caching, because we only need to get this during the initial load
@@ -10086,6 +9709,59 @@ function updateHashParam(key, value) {
             }
         }
     }
+}
+
+/***/ }),
+
+/***/ "./source/js/utils/parse-label-value.js":
+/*!**********************************************!*\
+  !*** ./source/js/utils/parse-label-value.js ***!
+  \**********************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
+exports.default = parseLabelValue;
+/**
+ * Parses a v3 manifest's label/value pair from an object & array to a string
+ *
+ * @public
+ * @params {string} key - The key from which a label/value pair should be extracted.
+ * @returns {object} - The label/value pair as strings.
+ * */
+
+function parseLabelValue(key) {
+    var l = key.label;
+    var label = (typeof l === 'undefined' ? 'undefined' : _typeof(l)) === 'object' ? l[Object.keys(l)[0]][0] : l;
+
+    var v = key.value;
+    var value = void 0;
+    if (Array.isArray(v)) {
+        // is array of objects
+        value = v.map(function (e) {
+            return e[Object.keys(e)[0]];
+        });
+    } else {
+        // is object where value is possibly an array
+        value = (typeof v === 'undefined' ? 'undefined' : _typeof(v)) === 'object' ? v[Object.keys(v)[0]] : v;
+    }
+
+    if (Array.isArray(value)) {
+        value = value.join(', ');
+    }
+
+    return {
+        label: label,
+        value: value
+    };
 }
 
 /***/ }),
@@ -10948,14 +10624,15 @@ var ViewerCore = function () {
         // Things that cannot be changed because of the way they are used by the script
         // Many of these are declared with arbitrary values that are changed later on
         this.viewerState = {
-            currentPageIndex: 0, // The current page in the viewport (center-most page)
+            currentPageIndices: [0], // The visible pages in the viewport
+            activePageIndex: 0, // The current 'active' page in the viewport
             horizontalOffset: 0, // Distance from the center of the diva element to the top of the current page
             horizontalPadding: 0, // Either the fixed padding or adaptive padding
             ID: null, // The prefix of the IDs of the elements (usually 1-diva-)
             initialKeyScroll: false, // Holds the initial state of enableKeyScroll
             initialSpaceScroll: false, // Holds the initial state of enableSpaceScroll
             innerElement: null, // The native .diva-outer DOM object
-            innerObject: {}, // $(settings.ID + 'inner'), for selecting the .diva-inner element
+            innerObject: {}, // document.getElementById(settings.ID + 'inner'), for selecting the .diva-inner element
             isActiveDiva: true, // In the case that multiple diva panes exist on the same page, this should have events funneled to it.
             isScrollable: true, // Used in enable/disableScrollable public methods
             isZooming: false, // Flag to keep track of whether zooming is still in progress, for handleZoom
@@ -10966,7 +10643,7 @@ var ViewerCore = function () {
             oldZoomLevel: -1, // Holds the previous zoom level after zooming in or out
             options: options,
             outerElement: null, // The native .diva-outer DOM object
-            outerObject: {}, // $(settings.ID + 'outer'), for selecting the .diva-outer element
+            outerObject: {}, // document.getElementById(settings.ID + 'outer'), for selecting the .diva-outer element
             pageOverlays: new _pageOverlayManager2.default(),
             pageTools: [], // The plugins which are enabled as page tools
             parentObject: this.parentObject, // JQuery object referencing the parent element
@@ -10984,7 +10661,7 @@ var ViewerCore = function () {
             viewport: null, // Object caching the viewport dimensions
             viewportElement: null,
             viewportObject: null,
-            zoomDuration: 600
+            zoomDuration: 400
         };
 
         this.settings = (0, _settingsView2.default)([options, this.viewerState]);
@@ -11104,9 +10781,7 @@ var ViewerCore = function () {
         key: 'escapeListener',
         value: function escapeListener(e) {
             if (e.keyCode === 27) {
-                this.reloadViewer({
-                    inFullscreen: !this.settings.inFullscreen
-                });
+                this.publicInstance.leaveFullscreenMode();
             }
         }
 
@@ -11154,7 +10829,7 @@ var ViewerCore = function () {
                 if ('horizontalOffset' in newOptions) this.viewerState.horizontalOffset = newOptions.horizontalOffset;
             } else {
                 // Otherwise the default is to remain on the current page
-                this.viewerState.options.goDirectlyTo = this.settings.currentPageIndex;
+                this.viewerState.options.goDirectlyTo = this.settings.activePageIndex;
             }
 
             if (this.hasChangedOption(newOptions, 'inGrid') || this.hasChangedOption(newOptions, 'inBookLayout')) {
@@ -11279,7 +10954,8 @@ var ViewerCore = function () {
                 var options = {
                     viewport: this.viewerState.viewport,
                     outerElement: this.viewerState.outerElement,
-                    innerElement: this.viewerState.innerElement
+                    innerElement: this.viewerState.innerElement,
+                    settings: this.settings
                 };
 
                 var hooks = {
@@ -11424,10 +11100,10 @@ var ViewerCore = function () {
             // If no focal point was given, zoom on the center of the viewport
             if (!focalPoint) {
                 var viewport = this.viewerState.viewport;
-                var currentRegion = this.viewerState.renderer.layout.getPageRegion(this.settings.currentPageIndex);
+                var currentRegion = this.viewerState.renderer.layout.getPageRegion(this.settings.activePageIndex);
 
                 focalPoint = {
-                    anchorPage: this.settings.currentPageIndex,
+                    anchorPage: this.settings.activePageIndex,
                     offset: {
                         left: viewport.width / 2 - (currentRegion.left - viewport.left),
                         top: viewport.height / 2 - (currentRegion.top - viewport.top)
@@ -11483,6 +11159,16 @@ var ViewerCore = function () {
                 }
             });
 
+            // Deactivate zoom buttons while zooming
+            var zoomInButton = document.getElementById(this.settings.selector + 'zoom-in-button');
+            var zoomOutButton = document.getElementById(this.settings.selector + 'zoom-out-button');
+            zoomInButton.disabled = true;
+            zoomOutButton.disabled = true;
+            setTimeout(function () {
+                zoomInButton.disabled = false;
+                zoomOutButton.disabled = false;
+            }, this.settings.zoomDuration);
+
             // Send off the zoom level did change event.
             this.publish("ZoomLevelDidChange", newZoomLevel);
 
@@ -11501,7 +11187,7 @@ var ViewerCore = function () {
     }, {
         key: 'getYOffset',
         value: function getYOffset(pageIndex, anchor) {
-            var pidx = typeof pageIndex === "undefined" ? this.settings.currentPageIndex : pageIndex;
+            var pidx = typeof pageIndex === "undefined" ? this.settings.activePageIndex : pageIndex;
 
             if (anchor === "center" || anchor === "centre") //how you can tell an American coded this
                 {
@@ -11518,7 +11204,7 @@ var ViewerCore = function () {
     }, {
         key: 'getXOffset',
         value: function getXOffset(pageIndex, anchor) {
-            var pidx = typeof pageIndex === "undefined" ? this.settings.currentPageIndex : pageIndex;
+            var pidx = typeof pageIndex === "undefined" ? this.settings.activePageIndex : pageIndex;
 
             if (anchor === "left") {
                 return parseInt(this.settings.panelWidth / 2, 10);
@@ -11539,7 +11225,7 @@ var ViewerCore = function () {
             // FIXME(wabain): This should really only be called after initial load
             if (this.viewerState.renderer) {
                 this.updateOffsets();
-                this.viewerState.renderer.goto(this.settings.currentPageIndex, this.viewerState.verticalOffset, this.viewerState.horizontalOffset);
+                this.viewerState.renderer.goto(this.settings.activePageIndex, this.viewerState.verticalOffset, this.viewerState.horizontalOffset);
             }
 
             return true;
@@ -11547,7 +11233,7 @@ var ViewerCore = function () {
     }, {
         key: 'updateOffsets',
         value: function updateOffsets() {
-            var pageOffset = this.viewerState.renderer.layout.getPageToViewportCenterOffset(this.settings.currentPageIndex, this.viewerState.viewport);
+            var pageOffset = this.viewerState.renderer.layout.getPageToViewportCenterOffset(this.settings.activePageIndex, this.viewerState.viewport);
 
             if (pageOffset) {
                 this.viewerState.horizontalOffset = pageOffset.x;
@@ -11580,17 +11266,17 @@ var ViewerCore = function () {
             clearTimeout(this.viewerState.resizeTimer);
 
             this.viewerState.resizeTimer = setTimeout(function () {
-                var pageOffset = _this7.viewerState.renderer.layout.getPageToViewportCenterOffset(_this7.settings.currentPageIndex, _this7.viewerState.viewport);
+                var pageOffset = _this7.viewerState.renderer.layout.getPageToViewportCenterOffset(_this7.settings.activePageIndex, _this7.viewerState.viewport);
 
                 if (pageOffset) {
                     _this7.reloadViewer({
-                        goDirectlyTo: _this7.settings.currentPageIndex,
+                        goDirectlyTo: _this7.settings.activePageIndex,
                         verticalOffset: pageOffset.y,
                         horizontalOffset: pageOffset.x
                     });
                 } else {
                     _this7.reloadViewer({
-                        goDirectlyTo: _this7.settings.currentPageIndex
+                        goDirectlyTo: _this7.settings.activePageIndex
                     });
                 }
             }, 200);
@@ -11642,7 +11328,6 @@ var ViewerCore = function () {
 
             if (this.settings.verticallyOriented || this.settings.inGrid) direction = newScrollTop - previousTopScroll;else direction = newScrollLeft - previousLeftScroll;
 
-            //give adjust the direction we care about
             this.viewerState.renderer.adjust();
 
             var primaryScroll = this.settings.verticallyOriented || this.settings.inGrid ? newScrollTop : newScrollLeft;
@@ -11842,16 +11527,6 @@ var ViewerCore = function () {
 
             this.publish('NumberOfPagesDidChange', this.settings.numPages);
 
-            if (this.settings.enableAutoTitle) {
-                var title = document.getElementById(this.settings.selector + 'title');
-
-                if (title) {
-                    title.innerHTML(this.settings.manifest.itemTitle);
-                } else {
-                    this.settings.parentObject.insertBefore((0, _elt.elt)('div', this.elemAttrs('title'), [this.settings.manifest.itemTitle]), this.settings.parentObject.firstChild);
-                }
-            }
-
             // Calculate the horizontal and vertical inter-page padding based on the dimensions of the average zoom level
             if (this.settings.adaptivePadding > 0) {
                 var z = Math.floor((this.settings.minZoomLevel + this.settings.maxZoomLevel) / 2);
@@ -11916,17 +11591,27 @@ var ViewerCore = function () {
             //prep dimensions one last time now that pages have loaded
             this.updatePanelSize();
 
+            if (this.settings.enableAutoTitle) {
+                var title = document.getElementById(this.settings.selector + 'title');
+
+                if (title) {
+                    title.innerHTML = this.settings.manifest.itemTitle;
+                } else {
+                    this.settings.parentObject.insertBefore((0, _elt.elt)('div', this.elemAttrs('title'), [this.settings.manifest.itemTitle]), this.settings.parentObject.firstChild);
+                }
+            }
+
             // FIXME: This is a hack to ensure that the outerElement scrollbars are taken into account
             if (this.settings.verticallyOriented) this.viewerState.innerElement.style.minWidth = this.settings.panelWidth + 'px';else this.viewerState.innerElement.style.minHeight = this.settings.panelHeight + 'px';
 
             // FIXME: If the page was supposed to be positioned relative to the viewport we need to
             // recalculate it to take into account the scrollbars
             if (anchoredVertically || anchoredHorizontally) {
-                if (anchoredVertically) this.viewerState.verticalOffset = this.getYOffset(this.settings.currentPageIndex, "top");
+                if (anchoredVertically) this.viewerState.verticalOffset = this.getYOffset(this.settings.activePageIndex, "top");
 
-                if (anchoredHorizontally) this.viewerState.horizontalOffset = this.getXOffset(this.settings.currentPageIndex, "center");
+                if (anchoredHorizontally) this.viewerState.horizontalOffset = this.getXOffset(this.settings.activePageIndex, "center");
 
-                this.viewerState.renderer.goto(this.settings.currentPageIndex, this.viewerState.verticalOffset, this.viewerState.horizontalOffset);
+                this.viewerState.renderer.goto(this.settings.activePageIndex, this.viewerState.verticalOffset, this.viewerState.horizontalOffset);
             }
 
             // signal that everything should be set up and ready to go.
@@ -12061,10 +11746,10 @@ var ViewerCore = function () {
 
             // Fall back to current page
             // FIXME: Would be better to use the closest page or something
-            var currentRegion = this.viewerState.renderer.layout.getPageRegion(this.settings.currentPageIndex);
+            var currentRegion = this.viewerState.renderer.layout.getPageRegion(this.settings.activePageIndex);
 
             return {
-                anchorPage: this.settings.currentPageIndex,
+                anchorPage: this.settings.activePageIndex,
                 offset: {
                     left: docCoords.left - currentRegion.left,
                     top: docCoords.top - currentRegion.top
@@ -12084,14 +11769,30 @@ var ViewerCore = function () {
          */
 
     }, {
-        key: 'setCurrentPage',
-        value: function setCurrentPage(pageIndex) {
-            if (this.viewerState.currentPageIndex !== pageIndex) {
-                this.viewerState.currentPageIndex = pageIndex;
-                this.publish("VisiblePageDidChange", pageIndex, this.getPageName(pageIndex));
+        key: 'setCurrentPages',
+        value: function setCurrentPages(activePage, visiblePages) {
+            if (!arraysEqual(this.viewerState.currentPageIndices, visiblePages)) {
+                this.viewerState.currentPageIndices = visiblePages;
+                if (this.viewerState.activePageIndex !== activePage) {
+                    this.viewerState.activePageIndex = activePage;
+                    this.publish("ActivePageDidChange", activePage);
+                }
+                this.publish("VisiblePageDidChange", visiblePages);
 
                 // Publish an event if the page we're switching to has other images.
-                if (this.viewerState.manifest.pages[pageIndex].otherImages.length > 0) this.publish('VisiblePageHasAlternateViews', pageIndex);
+                if (this.viewerState.manifest.pages[activePage].otherImages.length > 0) this.publish('VisiblePageHasAlternateViews', activePage);
+            } else if (this.viewerState.activePageIndex !== activePage) {
+                this.viewerState.activePageIndex = activePage;
+                this.publish("ActivePageDidChange", activePage);
+            }
+
+            function arraysEqual(a, b) {
+                if (a.length !== b.length) return false;
+
+                for (var i = 0, len = a.length; i < len; i++) {
+                    if (a[i] !== b[i]) return false;
+                }
+                return true;
             }
         }
     }, {
@@ -12114,6 +11815,7 @@ var ViewerCore = function () {
         value: function enableScrollable() {
             if (!this.viewerState.isScrollable) {
                 this.bindMouseEvents();
+                this.enableDragScrollable();
                 this.viewerState.options.enableKeyScroll = this.viewerState.initialKeyScroll;
                 this.viewerState.options.enableSpaceScroll = this.viewerState.initialSpaceScroll;
                 this.viewerState.viewportElement.style.overflow = 'auto';
@@ -12121,12 +11823,18 @@ var ViewerCore = function () {
             }
         }
     }, {
+        key: 'enableDragScrollable',
+        value: function enableDragScrollable() {
+            if (this.viewerState.viewportObject.hasAttribute('nochilddrag')) this.viewerState.viewportObject.removeAttribute('nochilddrag');
+        }
+    }, {
         key: 'disableScrollable',
         value: function disableScrollable() {
             if (this.viewerState.isScrollable) {
-                // block dragging/double-click zooming
-                if (this.viewerState.innerObject.hasClass('diva-dragger')) this.viewerState.innerObject.mousedown = null;
+                // block dragging
+                this.disableDragScrollable();
 
+                // block double-click zooming
                 this.viewerState.outerObject.dblclick = null;
                 this.viewerState.outerObject.contextmenu = null;
 
@@ -12141,6 +11849,11 @@ var ViewerCore = function () {
 
                 this.viewerState.isScrollable = false;
             }
+        }
+    }, {
+        key: 'disableDragScrollable',
+        value: function disableDragScrollable() {
+            if (!this.viewerState.viewportObject.hasAttribute('nochilddrag')) this.viewerState.viewportObject.setAttribute('nochilddrag', "");
         }
 
         // isValidOption (key, value)
@@ -12227,10 +11940,7 @@ var Viewport = function () {
         options = options || {};
 
         this.intersectionTolerance = options.intersectionTolerance || 0;
-        this.maxExtent = options.maxExtent || 2000;
-
         this.outer = outer;
-
         this._top = this._left = this._width = this._height = this._innerDimensions = null;
 
         this.invalidate();
@@ -12261,8 +11971,8 @@ var Viewport = function () {
         key: 'invalidate',
         value: function invalidate() {
             // FIXME: Should this check the inner dimensions as well?
-            this._width = clampMax(this.outer.clientWidth, this.maxExtent);
-            this._height = clampMax(this.outer.clientHeight, this.maxExtent);
+            this._width = this.outer.clientWidth;
+            this._height = this.outer.clientHeight;
 
             this._top = this.outer.scrollTop;
             this._left = this.outer.scrollLeft;

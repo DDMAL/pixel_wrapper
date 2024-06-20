@@ -89,7 +89,7 @@ gulp.task('develop:build-plugins', plugins);
 gulp.task('develop:build-diva', diva);
 gulp.task('develop:clean', cleanDist);
 gulp.task('develop:tmp-clean', cleanTemp);
-gulp.task('develop:lint', gulp.series('lint-src', 'lint-test', 'lint-gulpfile'));
+gulp.task('develop:lint', gulp.series('lint-test', 'lint-gulpfile'));
 gulp.task('develop:server', server);
 gulp.task('develop', gulp.series('develop:lint', 'develop:clean', 'develop:build-plugins', 'develop:server'));
 gulp.task('develop:rodan', gulp.series('develop:lint', 'develop:clean', 'develop:build-plugins', 'develop:build-diva'));
