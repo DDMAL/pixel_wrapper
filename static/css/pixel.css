@@ -385,7 +385,8 @@ li:not(:last-child) {
   position: absolute;
   top: 50%;
   left: 50%;
-  border: 1px solid #666666;
+  border-width: 3px;
+  border-style: solid;
   border-radius: 50%;
   -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=60)";
   filter: alpha(opacity=60);
@@ -467,6 +468,48 @@ button {
   visibility: hidden;
 }
 
+/* For controlling the brush color picker */
+#brush-color {
+  visibility: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.brush-color-span {
+  margin-left: 10px;
+  padding: 5px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background: #f8f9f9;
+}
+
+.brush-color-text {
+  margin-left: 5px;
+  color: #242729;
+}
+
+.brush-color-label {
+  padding: 3px;
+  display: flex;
+  align-items: center;
+}
+
+[type='color'] {
+    appearance: none;
+    padding: 0;
+    width: 15px;
+    height: 15px;
+    border: none;
+}
+
+[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+[type='color']::-webkit-color-swatch {
+  border: none;
+}
+
 /* For Tutorial Gifs*/
 .tutorial-image {
   width: 100%;
@@ -476,60 +519,4 @@ button {
   position: absolute;
   right: 10px;
   bottom: 60px;
-}
-
-/* Tooltip container */
-.tooltip {
-    position: relative;
-    display: inline-block;
-    color: white;
-    font-family: sans-serif;
-    font: icon;
-    padding: 1px 4px;
-    margin-left: 2px;
-    background-color: #414141;
-}
-
-.tooltip:hover {
-  color: tomato;
-}
-
-/* Tooltip text */
-.tooltiptext {
-    visibility: hidden;
-    width: 30em;
-    background-color: #414141;
-    color: white;
-    text-align: center;
-    padding: 5px 5px;
-    border-radius: 6px;
-
-    /* Position the tooltip text */
-    position: absolute;
-    z-index: 1;
-    left: 570%;
-    bottom: 0%;
-    margin-left: -60px;
-
-    /* Fade in tooltip */
-    opacity: 0;
-    transition: opacity 0.5s;
-}
-
-/* Tooltip arrow */
-.tooltiptext::after {
-    content: "";
-    position: absolute;
-    bottom: 5px;
-    left: -1%;
-    margin-left: -6px;
-    border-width: 5px;
-    border-style: solid;
-    border-color: transparent #414141 transparent transparent;
-}
-
-/* Show the tooltip text when you mouse over the tooltip container */
-.tooltip:hover .tooltiptext {
-    visibility: visible;
-    opacity: 1;
 }
