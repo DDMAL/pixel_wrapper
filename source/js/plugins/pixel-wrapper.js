@@ -226,6 +226,21 @@ export class PixelWrapper
         // this backgroundLayer is only created upon submitting (so no conflicts)
         let backgroundLayer = new Layer(0, new Colour(242, 0, 242, 1), "Background Layer",
             this.pixelInstance, 0.5, this.pixelInstance.actions);
+        console.log(this.selectRegionLayer.shapes, this.selectRegionLayer.shapes.length);
+
+        // Alert and return if user hasn't created a selection region.
+        // Ask for permission to select the entire bacgkround layer for them
+        if (this.selectRegionLayer.shapes.length === 0)
+        {
+            if(confirm("You haven't created any select regions. Press OK to select the entire background region.")) {
+                let rect = new Rectangle(new Point(0,0,this.pageIndex),this.maxWidth,this.maxHeight,"add");
+                this.selectRegionLayer.addShapeToLayer(rect);
+            }
+            else {
+                this.layers.unshift(this.selectRegionLayer);
+                return;
+            }
+        }
 
         // Add select regions to backgroundLayer
         this.selectRegionLayer.shapes.forEach((shape) =>
@@ -245,13 +260,7 @@ export class PixelWrapper
         });
         backgroundLayer.drawLayer(this.maxZoom, backgroundLayer.getCanvas());
 
-        // Alert and return if user hasn't created a selection region
-        if (this.selectRegionLayer.shapes.length === 0)
-        {
-            alert("You haven't created any select regions!");
-            this.layers.unshift(this.selectRegionLayer);
-            return;
-        }
+        
 
         // Instantiate progress bar
         // this.uiManager.createExportElements(this);
